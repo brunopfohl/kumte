@@ -1,13 +1,49 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { LibraryScreenProps } from '../types';
+import { FileService, Document } from '../services/FileService';
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
-  const mockDocuments = [
-    { id: '1', title: 'Research Paper', type: 'pdf', date: '10 May 2023' },
-    { id: '2', title: 'Meeting Notes', type: 'image', date: '12 June 2023' },
-    { id: '3', title: 'Project Proposal', type: 'pdf', date: '23 July 2023' },
-  ];
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  const loadDocuments = async () => {
+    setLoading(true);
+    try {
+      const docs = await FileService.getDocuments();
+      setDocuments(docs);
+    } catch (error) {
+      console.error('Error loading documents:', error);
+      Alert.alert('Error', 'Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImportDocument = async () => {
+    setImporting(true);
+    try {
+      const document = await FileService.importDocument('pdf');
+      if (document) {
+        setDocuments(prev => [...prev, document]);
+        Alert.alert('Success', 'Document imported successfully');
+      }
+    } catch (error) {
+      console.error('Error importing document:', error);
+      Alert.alert('Error', 'Failed to import document');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleCaptureDocument = () => {
+    navigation.navigate('Camera');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -20,15 +56,20 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
       
       <View style={styles.actionContainer}>
         <TouchableOpacity 
-          style={[styles.actionButton, styles.importButton]}
-          onPress={() => {}}
+          style={[styles.actionButton, styles.importButton, importing && styles.buttonDisabled]}
+          onPress={handleImportDocument}
+          disabled={importing}
         >
-          <Text style={styles.actionButtonText}>Import Document</Text>
+          {importing ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.actionButtonText}>Import Document</Text>
+          )}
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={[styles.actionButton, styles.cameraButton]}
-          onPress={() => navigation.navigate('Camera')}
+          onPress={handleCaptureDocument}
         >
           <Text style={styles.actionButtonText}>Capture Image</Text>
         </TouchableOpacity>
@@ -37,34 +78,46 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
       <View style={styles.recentContainer}>
         <Text style={styles.sectionTitle}>Recent Documents</Text>
         
-        <ScrollView style={styles.documentList}>
-          {mockDocuments.map(doc => (
-            <TouchableOpacity 
-              key={doc.id}
-              style={styles.documentItem}
-              onPress={() => navigation.navigate('Viewer', {
-                uri: `mock-uri-${doc.id}`,
-                type: doc.type
-              })}
-            >
-              <View style={styles.documentIconContainer}>
-                <View style={[
-                  styles.documentIcon, 
-                  doc.type === 'pdf' ? styles.pdfIcon : styles.imageIcon
-                ]}>
-                  <Text style={styles.documentIconText}>
-                    {doc.type === 'pdf' ? 'PDF' : 'IMG'}
-                  </Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#3a86ff" size="large" />
+            <Text style={styles.loadingText}>Loading documents...</Text>
+          </View>
+        ) : documents.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No documents yet</Text>
+            <Text style={styles.emptySubText}>Import or capture a document to get started</Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.documentList}>
+            {documents.map((doc, index) => (
+              <TouchableOpacity 
+                key={`doc-${doc.id}-${index}`}
+                style={styles.documentItem}
+                onPress={() => navigation.navigate('Viewer', {
+                  uri: doc.uri,
+                  type: doc.type
+                })}
+              >
+                <View style={styles.documentIconContainer}>
+                  <View style={[
+                    styles.documentIcon, 
+                    doc.type === 'pdf' ? styles.pdfIcon : styles.imageIcon
+                  ]}>
+                    <Text style={styles.documentIconText}>
+                      {doc.type === 'pdf' ? 'PDF' : 'IMG'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              
-              <View style={styles.documentInfo}>
-                <Text style={styles.documentTitle}>{doc.title}</Text>
-                <Text style={styles.documentMeta}>{doc.type.toUpperCase()} • {doc.date}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                
+                <View style={styles.documentInfo}>
+                  <Text style={styles.documentTitle}>{doc.title}</Text>
+                  <Text style={styles.documentMeta}>{doc.type.toUpperCase()} • {doc.date}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -107,6 +160,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
   importButton: {
     backgroundColor: '#3a86ff',
   },
@@ -135,6 +191,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a2a3a',
     marginBottom: 15,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#617d98',
+    marginTop: 10,
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#1a2a3a',
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#617d98',
+    textAlign: 'center',
   },
   documentList: {
     flex: 1,

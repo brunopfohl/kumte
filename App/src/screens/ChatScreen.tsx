@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,9 +9,12 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  ActivityIndicator
 } from 'react-native';
 import { ChatScreenProps } from '../types';
+import { DocumentService } from '../services/DocumentService';
+import { FileService } from '../services/FileService';
 
 interface Message {
   id: string;
@@ -23,18 +26,62 @@ interface Message {
 export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const { documentContext } = route.params;
   const [inputText, setInputText] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: `Hello! I'm your AI assistant. How can I help you with this document?`,
-      sender: 'ai',
-      timestamp: new Date()
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [document, setDocument] = useState<any>(null);
+
+  useEffect(() => {
+    // Initialize chat with welcome message
+    initializeChat();
+  }, []);
+
+  const initializeChat = async () => {
+    setLoading(true);
+    try {
+      // Extract URI from context (this is a simplification)
+      const uriMatch = documentContext.match(/mock-uri-\d+|mock-imported-\d+|mock-captured-\d+/);
+      const uri = uriMatch ? uriMatch[0] : '';
+      const typeMatch = documentContext.match(/\((\w+)\)/);
+      const type = typeMatch ? typeMatch[1] as 'pdf' | 'image' : 'pdf';
+      
+      // Create a mock document
+      const mockDoc = {
+        id: `chat-doc-${Date.now()}`,
+        title: 'Document',
+        type: type,
+        uri: uri,
+        date: new Date().toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        })
+      };
+      
+      setDocument(mockDoc);
+      
+      // Add initial AI message
+      const initialMessage: Message = {
+        id: `msg-${Date.now()}`,
+        text: `Hello! I'm your AI assistant. How can I help you with this document?`,
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      
+      setMessages([initialMessage]);
+    } catch (error) {
+      console.error('Error initializing chat:', error);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
+  const sendMessage = async () => {
+    if (!inputText.trim() || !document) return;
 
+    setSending(true);
+    
+    // Add user message
     const newUserMessage: Message = {
       id: Date.now().toString(),
       text: inputText,
@@ -45,26 +92,34 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     setMessages(prev => [...prev, newUserMessage]);
     setInputText('');
 
-    // Mock AI response
-    setTimeout(() => {
-      const mockResponses = [
-        "I've analyzed the document. It appears to contain information about...",
-        "Based on the content, I can tell you that...",
-        "The main points of this document are...",
-        "I can summarize this for you if you'd like. Just let me know what specific aspects you're interested in."
-      ];
-
-      const randomResponse = mockResponses[Math.floor(Math.random() * mockResponses.length)];
-
+    try {
+      // Get AI response through service
+      const aiResponseText = await DocumentService.chatWithAI(document, inputText);
+      
+      // Add AI response
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: randomResponse,
+        text: aiResponseText,
         sender: 'ai',
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      // Add error message
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Sorry, I had trouble processing your message. Please try again.',
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setSending(false);
+    }
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
@@ -91,9 +146,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     );
   };
 
-  const renderSuggestion = (text: string, index: number) => (
+  const renderSuggestion = (text: string, key: string) => (
     <TouchableOpacity 
-      key={index}
+      key={key}
       style={styles.suggestionChip}
       onPress={() => setInputText(text)}
     >
@@ -130,42 +185,59 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={item => item.id}
-        style={styles.messagesList}
-        contentContainerStyle={styles.messagesContent}
-      />
-
-      <View style={styles.suggestionsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {suggestions.map(renderSuggestion)}
-        </ScrollView>
-      </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-      >
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Type your message..."
-            placeholderTextColor="#aaa"
-            multiline
-          />
-          <TouchableOpacity 
-            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-            onPress={sendMessage}
-            disabled={!inputText.trim()}
-          >
-            <Text style={styles.sendButtonText}>→</Text>
-          </TouchableOpacity>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color="#3a86ff" size="large" />
+          <Text style={styles.loadingText}>Initializing chat...</Text>
         </View>
-      </KeyboardAvoidingView>
+      ) : (
+        <>
+          <FlatList
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={item => `message-${item.id}-${item.timestamp.getTime()}`}
+            style={styles.messagesList}
+            contentContainerStyle={styles.messagesContent}
+          />
+
+          <View style={styles.suggestionsContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {suggestions.map((text, index) => renderSuggestion(text, `suggestion-${index}`))}
+            </ScrollView>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+          >
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Type your message..."
+                placeholderTextColor="#aaa"
+                multiline
+                editable={!sending}
+              />
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton, 
+                  (!inputText.trim() || sending) && styles.sendButtonDisabled
+                ]}
+                onPress={sendMessage}
+                disabled={!inputText.trim() || sending}
+              >
+                {sending ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.sendButtonText}>→</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </>
+      )}
     </SafeAreaView>
   );
 };
@@ -209,6 +281,16 @@ const styles = StyleSheet.create({
   },
   settingsButtonText: {
     fontSize: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#617d98',
+    marginTop: 10,
+    fontSize: 16,
   },
   messagesList: {
     flex: 1,

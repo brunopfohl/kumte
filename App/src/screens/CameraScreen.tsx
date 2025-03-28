@@ -1,11 +1,52 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { CameraScreenProps } from '../types';
+import { FileService } from '../services/FileService';
 
 const { width } = Dimensions.get('window');
 const frameSize = width * 0.7;
 
 export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
+  const [capturing, setCapturing] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const [grid, setGrid] = useState(false);
+  const [autoMode, setAutoMode] = useState(true);
+
+  const handleCaptureDocument = async () => {
+    setCapturing(true);
+    try {
+      const document = await FileService.captureDocument();
+      if (document) {
+        Alert.alert(
+          'Success',
+          'Document captured successfully',
+          [
+            { 
+              text: 'View Document', 
+              onPress: () => navigation.navigate('Viewer', {
+                uri: document.uri,
+                type: document.type
+              })
+            },
+            { 
+              text: 'Back to Library', 
+              onPress: () => navigation.navigate('Library')
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error capturing document:', error);
+      Alert.alert('Error', 'Failed to capture document');
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const toggleFlash = () => setFlash(!flash);
+  const toggleGrid = () => setGrid(!grid);
+  const toggleAutoMode = () => setAutoMode(!autoMode);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -22,6 +63,12 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
       <View style={styles.cameraContainer}>
         <View style={styles.viewfinder}>
           <View style={styles.frame}>
+            {grid && (
+              <>
+                <View style={styles.gridHorizontal} />
+                <View style={styles.gridVertical} />
+              </>
+            )}
             <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
@@ -37,22 +84,36 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
       <View style={styles.controlsContainer}>
         <TouchableOpacity
           style={styles.captureButton}
-          onPress={() => {}}
+          onPress={handleCaptureDocument}
+          disabled={capturing}
         >
-          <View style={styles.captureButtonInner} />
+          {capturing ? (
+            <ActivityIndicator color="#fff" size="large" />
+          ) : (
+            <View style={styles.captureButtonInner} />
+          )}
         </TouchableOpacity>
 
         <View style={styles.optionsContainer}>
-          <TouchableOpacity style={styles.optionButton}>
-            <Text style={styles.optionText}>Auto</Text>
+          <TouchableOpacity 
+            style={[styles.optionButton, autoMode && styles.optionButtonActive]}
+            onPress={toggleAutoMode}
+          >
+            <Text style={[styles.optionText, autoMode && styles.optionTextActive]}>Auto</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.optionButton}>
-            <Text style={styles.optionText}>Flash</Text>
+          <TouchableOpacity 
+            style={[styles.optionButton, flash && styles.optionButtonActive]}
+            onPress={toggleFlash}
+          >
+            <Text style={[styles.optionText, flash && styles.optionTextActive]}>Flash</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.optionButton}>
-            <Text style={styles.optionText}>Grid</Text>
+          <TouchableOpacity 
+            style={[styles.optionButton, grid && styles.optionButtonActive]}
+            onPress={toggleGrid}
+          >
+            <Text style={[styles.optionText, grid && styles.optionTextActive]}>Grid</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -103,6 +164,20 @@ const styles = StyleSheet.create({
   frame: {
     width: '100%',
     height: '100%',
+  },
+  gridHorizontal: {
+    position: 'absolute',
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    top: '50%',
+  },
+  gridVertical: {
+    position: 'absolute',
+    height: '100%',
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    left: '50%',
   },
   corner: {
     position: 'absolute',
@@ -175,8 +250,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
+  optionButtonActive: {
+    backgroundColor: '#3a86ff',
+  },
   optionText: {
     color: '#fff',
     fontSize: 14,
+  },
+  optionTextActive: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 }); 

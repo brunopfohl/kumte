@@ -1,20 +1,93 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { ViewerScreenProps } from '../types';
+import { FileService } from '../services/FileService';
+import { DocumentService } from '../services/DocumentService';
 
 const { width, height } = Dimensions.get('window');
 
 export const ViewerScreen: React.FC<ViewerScreenProps> = ({ navigation, route }) => {
   const { uri, type } = route.params;
   const [currentTool, setCurrentTool] = useState<string | null>(null);
+  const [document, setDocument] = useState<any>(null);
+  const [documentContent, setDocumentContent] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  
+  // Options for different tools
+  const [summaryType, setSummaryType] = useState<'brief' | 'detailed' | 'bullet'>('detailed');
+  const [extractType, setExtractType] = useState<'keyPoints' | 'dates' | 'custom'>('keyPoints');
+  const [translateLanguage, setTranslateLanguage] = useState<'spanish' | 'french' | 'german'>('french');
 
-  // Mock document content
-  const documentContent = type === 'pdf' 
-    ? `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor.\n\nCras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi. Proin porttitor, orci nec nonummy molestie.\n\nFusce neque. Etiam posuere lacus quis dolor. Praesent lectus.`
-    : 'Image Document';
+  useEffect(() => {
+    loadDocument();
+  }, []);
+
+  const loadDocument = async () => {
+    setLoading(true);
+    try {
+      // In a real app, we would use the uri to find the document
+      // For now, we'll create a mock document
+      const mockDoc = {
+        id: '1',
+        title: type === 'pdf' ? 'PDF Document' : 'Image Document',
+        type: type as 'pdf' | 'image',
+        uri: uri,
+        date: new Date().toLocaleDateString('en-GB', {
+          day: 'numeric', 
+          month: 'long', 
+          year: 'numeric'
+        })
+      };
+      
+      setDocument(mockDoc);
+      
+      // Get document content
+      const content = await DocumentService.getDocumentContent(mockDoc);
+      setDocumentContent(content);
+    } catch (error) {
+      console.error('Error loading document:', error);
+      Alert.alert('Error', 'Failed to load document');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleToolPress = (tool: string) => {
+    // Reset result when changing tools
+    setResult(null);
     setCurrentTool(tool === currentTool ? null : tool);
+  };
+
+  const handleProcessDocument = async () => {
+    if (!document || !currentTool) return;
+    
+    setProcessing(true);
+    setResult(null);
+    
+    try {
+      let processedResult = '';
+      
+      switch (currentTool) {
+        case 'summary':
+          processedResult = await DocumentService.summarizeDocument(document, { type: summaryType });
+          break;
+        case 'extract':
+          processedResult = await DocumentService.extractInformation(document, extractType);
+          break;
+        case 'translate':
+          processedResult = await DocumentService.translateDocument(document, translateLanguage);
+          break;
+      }
+      
+      setResult(processedResult);
+    } catch (error) {
+      console.error(`Error processing document with ${currentTool}:`, error);
+      Alert.alert('Error', `Failed to ${currentTool} document`);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -33,9 +106,36 @@ export const ViewerScreen: React.FC<ViewerScreenProps> = ({ navigation, route })
       </View>
 
       <View style={styles.documentContainer}>
-        <View style={styles.documentPreview}>
-          <Text style={styles.previewText}>{documentContent}</Text>
-        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#3a86ff" size="large" />
+            <Text style={styles.loadingText}>Loading document...</Text>
+          </View>
+        ) : result ? (
+          <View style={styles.documentPreview}>
+            <View style={styles.resultHeader}>
+              <Text style={styles.resultTitle}>
+                {currentTool === 'summary' ? 'Summary' : 
+                 currentTool === 'extract' ? 'Extracted Information' : 'Translation'}
+              </Text>
+              <TouchableOpacity 
+                style={styles.closeResultButton}
+                onPress={() => setResult(null)}
+              >
+                <Text style={styles.closeResultButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.resultContent}>
+              <Text style={styles.resultText}>{result}</Text>
+            </ScrollView>
+          </View>
+        ) : (
+          <View style={styles.documentPreview}>
+            <ScrollView>
+              <Text style={styles.previewText}>{documentContent}</Text>
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       <View style={styles.toolsContainer}>
@@ -84,24 +184,41 @@ export const ViewerScreen: React.FC<ViewerScreenProps> = ({ navigation, route })
         </ScrollView>
       </View>
 
-      {currentTool && (
+      {currentTool && currentTool !== 'chat' && (
         <View style={styles.actionPanel}>
           {currentTool === 'summary' && (
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Summarize Document</Text>
               <View style={styles.optionsRow}>
-                <TouchableOpacity style={styles.optionChip}>
-                  <Text style={styles.optionText}>Brief</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, summaryType === 'brief' && styles.optionChipActive]}
+                  onPress={() => setSummaryType('brief')}
+                >
+                  <Text style={[styles.optionText, summaryType === 'brief' && styles.optionTextActive]}>Brief</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.optionChip, styles.optionChipActive]}>
-                  <Text style={[styles.optionText, styles.optionTextActive]}>Detailed</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, summaryType === 'detailed' && styles.optionChipActive]}
+                  onPress={() => setSummaryType('detailed')}
+                >
+                  <Text style={[styles.optionText, summaryType === 'detailed' && styles.optionTextActive]}>Detailed</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.optionChip}>
-                  <Text style={styles.optionText}>Bullet Points</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, summaryType === 'bullet' && styles.optionChipActive]}
+                  onPress={() => setSummaryType('bullet')}
+                >
+                  <Text style={[styles.optionText, summaryType === 'bullet' && styles.optionTextActive]}>Bullet Points</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.generateButton}>
-                <Text style={styles.generateButtonText}>Generate Summary</Text>
+              <TouchableOpacity 
+                style={[styles.generateButton, processing && styles.buttonDisabled]}
+                onPress={handleProcessDocument}
+                disabled={processing}
+              >
+                {processing ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.generateButtonText}>Generate Summary</Text>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -110,18 +227,35 @@ export const ViewerScreen: React.FC<ViewerScreenProps> = ({ navigation, route })
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Extract Information</Text>
               <View style={styles.optionsRow}>
-                <TouchableOpacity style={styles.optionChip}>
-                  <Text style={styles.optionText}>Key Points</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, extractType === 'keyPoints' && styles.optionChipActive]}
+                  onPress={() => setExtractType('keyPoints')}
+                >
+                  <Text style={[styles.optionText, extractType === 'keyPoints' && styles.optionTextActive]}>Key Points</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.optionChip}>
-                  <Text style={styles.optionText}>Dates</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, extractType === 'dates' && styles.optionChipActive]}
+                  onPress={() => setExtractType('dates')}
+                >
+                  <Text style={[styles.optionText, extractType === 'dates' && styles.optionTextActive]}>Dates</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.optionChip, styles.optionChipActive]}>
-                  <Text style={[styles.optionText, styles.optionTextActive]}>Custom</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, extractType === 'custom' && styles.optionChipActive]}
+                  onPress={() => setExtractType('custom')}
+                >
+                  <Text style={[styles.optionText, extractType === 'custom' && styles.optionTextActive]}>Custom</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.generateButton}>
-                <Text style={styles.generateButtonText}>Extract Information</Text>
+              <TouchableOpacity 
+                style={[styles.generateButton, processing && styles.buttonDisabled]}
+                onPress={handleProcessDocument}
+                disabled={processing}
+              >
+                {processing ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.generateButtonText}>Extract Information</Text>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -130,18 +264,35 @@ export const ViewerScreen: React.FC<ViewerScreenProps> = ({ navigation, route })
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Translate Document</Text>
               <View style={styles.optionsRow}>
-                <TouchableOpacity style={styles.optionChip}>
-                  <Text style={styles.optionText}>Spanish</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, translateLanguage === 'spanish' && styles.optionChipActive]}
+                  onPress={() => setTranslateLanguage('spanish')}
+                >
+                  <Text style={[styles.optionText, translateLanguage === 'spanish' && styles.optionTextActive]}>Spanish</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.optionChip, styles.optionChipActive]}>
-                  <Text style={[styles.optionText, styles.optionTextActive]}>French</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, translateLanguage === 'french' && styles.optionChipActive]}
+                  onPress={() => setTranslateLanguage('french')}
+                >
+                  <Text style={[styles.optionText, translateLanguage === 'french' && styles.optionTextActive]}>French</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.optionChip}>
-                  <Text style={styles.optionText}>German</Text>
+                <TouchableOpacity 
+                  style={[styles.optionChip, translateLanguage === 'german' && styles.optionChipActive]}
+                  onPress={() => setTranslateLanguage('german')}
+                >
+                  <Text style={[styles.optionText, translateLanguage === 'german' && styles.optionTextActive]}>German</Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.generateButton}>
-                <Text style={styles.generateButtonText}>Translate Document</Text>
+              <TouchableOpacity 
+                style={[styles.generateButton, processing && styles.buttonDisabled]}
+                onPress={handleProcessDocument}
+                disabled={processing}
+              >
+                {processing ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.generateButtonText}>Translate Document</Text>
+                )}
               </TouchableOpacity>
             </View>
           )}
@@ -188,6 +339,16 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 15,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#617d98',
+    marginTop: 10,
+    fontSize: 16,
+  },
   documentPreview: {
     flex: 1,
     backgroundColor: 'white',
@@ -200,6 +361,35 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   previewText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a2a3a',
+  },
+  closeResultButton: {
+    padding: 5,
+  },
+  closeResultButtonText: {
+    fontSize: 24,
+    color: '#777',
+  },
+  resultContent: {
+    flex: 1,
+  },
+  resultText: {
     fontSize: 16,
     lineHeight: 24,
     color: '#333',
@@ -275,6 +465,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: 'center',
     marginTop: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   generateButtonText: {
     color: 'white',
