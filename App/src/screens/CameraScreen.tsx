@@ -11,8 +11,18 @@ import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Document, NavigationProps } from '../types/navigation';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-export const CameraScreen = ({ navigation }: NavigationProps<'Camera'>) => {
+type RootStackParamList = {
+  Library: undefined;
+  Camera: undefined;
+  Viewer: { document: Document };
+  Chat: { document: Document };
+};
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Camera'>;
+
+export const CameraScreen: React.FC<Props> = ({ navigation }) => {
   const [hasPermission, setHasPermission] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const devices = useCameraDevices();

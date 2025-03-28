@@ -11,10 +11,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import axios from 'axios';
-import { Document, Message, NavigationProps } from '../types/navigation';
+import { Message, NavigationProps } from '../types/navigation';
 
 export const ChatScreen = ({ route }: NavigationProps<'Chat'>) => {
-  const { document } = route.params;
+  const { document } = route?.params || { document: { id: '', name: '', type: 'pdf', uri: '' } };
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);

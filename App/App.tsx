@@ -12,8 +12,9 @@ import { LibraryScreen } from './src/screens/LibraryScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { ViewerScreen } from './src/screens/ViewerScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { RootStackParamList } from './src/types/navigation';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function App(): React.JSX.Element {
   return (
