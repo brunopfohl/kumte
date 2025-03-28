@@ -11,18 +11,8 @@ import DocumentPicker from 'react-native-document-picker';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Document, NavigationProps } from '../types/navigation';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-type RootStackParamList = {
-  Library: undefined;
-  Camera: undefined;
-  Viewer: { document: Document };
-  Chat: { document: Document };
-};
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Library'>;
-
-export const LibraryScreen: React.FC<Props> = ({ navigation }) => {
+export const LibraryScreen = ({ navigation }: NavigationProps<'Library'>) => {
   const [documents, setDocuments] = useState<Document[]>([]);
 
   useEffect(() => {
@@ -54,7 +44,7 @@ export const LibraryScreen: React.FC<Props> = ({ navigation }) => {
 
       const newDoc: Document = {
         id: Date.now().toString(),
-        name: file.name || 'Untitled Document',
+        name: file.name,
         type: file.type === 'application/pdf' ? 'pdf' : 'image',
         uri: newUri,
       };

@@ -22,7 +22,7 @@ export type RootStackParamList = {
 
 export type NavigationProps<T extends keyof RootStackParamList> = {
   navigation: NativeStackNavigationProp<RootStackParamList, T>;
-  route?: {
+  route: {
     params: RootStackParamList[T];
   };
 }; 
