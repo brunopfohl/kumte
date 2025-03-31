@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
+import { pick, types} from '@react-native-documents/picker';
 
 export interface Document {
   id: string;
@@ -93,10 +93,10 @@ export class FileService {
    */
   static async importDocument(type: 'pdf' | 'image'): Promise<Document | null> {
     try {
-      const result = await DocumentPicker.pick({
+      const result = await pick({
         type: type === 'pdf' 
-          ? [DocumentPicker.types.pdf]
-          : [DocumentPicker.types.images]
+          ? [types.pdf]
+          : [types.images]
       });
 
       if (result && result[0]) {
@@ -111,7 +111,7 @@ export class FileService {
       }
     } catch (error: any) {
       // User cancelled the picker
-      if (DocumentPicker.isCancel(error)) {
+      if (error.code === 'DOCUMENT_PICKER_CANCELED') {
         console.log('User cancelled document picker');
         return null;
       }
