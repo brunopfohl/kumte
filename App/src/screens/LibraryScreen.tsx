@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { LibraryScreenProps } from '../types';
 import { FileService, Document } from '../services/FileService';
+import Icon from '../components/icons';
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -45,6 +46,28 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
     navigation.navigate('Camera');
   };
 
+  const getIconForDocument = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'pdf':
+        return 'file-pdf';
+      case 'doc':
+        return 'file-doc';
+      case 'docx':
+        return 'file-docx';
+      case 'txt':
+        return 'file-txt';
+      case 'jpg':
+      case 'jpeg':
+        return 'jpg';
+      case 'png':
+        return 'png';
+      case 'svg':
+        return 'svg';
+      default:
+        return 'file';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f7f9fc" />
@@ -63,7 +86,10 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           {importing ? (
             <ActivityIndicator color="white" size="small" />
           ) : (
-            <Text style={styles.actionButtonText}>Import Document</Text>
+            <>
+              <Icon name="download" size={20} color="white" style={styles.buttonIcon} />
+              <Text style={styles.actionButtonText}>Import Document</Text>
+            </>
           )}
         </TouchableOpacity>
         
@@ -71,6 +97,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           style={[styles.actionButton, styles.cameraButton]}
           onPress={handleCaptureDocument}
         >
+          <Icon name="camera" size={20} color="white" style={styles.buttonIcon} />
           <Text style={styles.actionButtonText}>Capture Image</Text>
         </TouchableOpacity>
       </View>
@@ -85,6 +112,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           </View>
         ) : documents.length === 0 ? (
           <View style={styles.emptyContainer}>
+            <Icon name="file" size={48} color="#617d98" style={styles.emptyIcon} />
             <Text style={styles.emptyText}>No documents yet</Text>
             <Text style={styles.emptySubText}>Import or capture a document to get started</Text>
           </View>
@@ -104,9 +132,11 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
                     styles.documentIcon, 
                     doc.type === 'pdf' ? styles.pdfIcon : styles.imageIcon
                   ]}>
-                    <Text style={styles.documentIconText}>
-                      {doc.type === 'pdf' ? 'PDF' : 'IMG'}
-                    </Text>
+                    <Icon 
+                      name={getIconForDocument(doc.type)} 
+                      size={24} 
+                      color="white" 
+                    />
                   </View>
                 </View>
                 
@@ -152,6 +182,7 @@ const styles = StyleSheet.create({
     margin: 5,
     height: 54,
     borderRadius: 12,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -159,6 +190,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -208,6 +242,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
+  emptyIcon: {
+    marginBottom: 16,
+  },
   emptyText: {
     fontSize: 18,
     fontWeight: '500',
@@ -245,11 +282,6 @@ const styles = StyleSheet.create({
   },
   imageIcon: {
     backgroundColor: '#3a86ff',
-  },
-  documentIconText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 12,
   },
   documentInfo: {
     flex: 1,
