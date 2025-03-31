@@ -19,27 +19,23 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function App() {
   return (
     <NavigationContainer children={
-      <Stack.Navigator screenOptions={{ headerShown: true }} children={
+      <Stack.Navigator screenOptions={{ headerShown: false }} children={
         <>
           <Stack.Screen 
             name="Library" 
             component={LibraryScreen}
-            options={{ title: 'IntelliRead' }}
           />
           <Stack.Screen 
             name="Camera" 
             component={CameraScreen}
-            options={{ title: 'Capture Document' }}
           />
           <Stack.Screen 
             name="Viewer" 
             component={ViewerScreen}
-            options={{ title: 'Document Viewer' }}
           />
           <Stack.Screen 
             name="Chat" 
             component={ChatScreen}
-            options={{ title: 'Chat with AI' }}
           />
         </>
       } />

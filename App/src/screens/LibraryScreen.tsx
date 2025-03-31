@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import { LibraryScreenProps } from '../types';
 import { FileService, Document } from '../services/FileService';
 import Icon from '../components/icons';
@@ -181,6 +181,7 @@ const styles = StyleSheet.create({
   actionContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
+    paddingTop: 20,
     marginBottom: 20,
     gap: 12,
   },
