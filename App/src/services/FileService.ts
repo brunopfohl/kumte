@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
 
 export interface Document {
   id: string;
@@ -88,28 +89,36 @@ export class FileService {
   }
 
   /**
-   * Import a document (simulated for now)
+   * Import a document using document picker
    */
   static async importDocument(type: 'pdf' | 'image'): Promise<Document | null> {
-    // Simulate document import - in a real app this would use document picker
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        try {
-          const newDoc = {
-            title: type === 'pdf' ? 'Imported PDF' : 'Imported Image',
-            type: type,
-            uri: `mock-imported-${Date.now()}`
-          };
-          
-          FileService.addDocument(newDoc)
-            .then(document => resolve(document))
-            .catch(() => resolve(null));
-        } catch (error) {
-          console.error('Error importing document:', error);
-          resolve(null);
-        }
-      }, 1000);
-    });
+    try {
+      const result = await DocumentPicker.pick({
+        type: type === 'pdf' 
+          ? [DocumentPicker.types.pdf]
+          : [DocumentPicker.types.images]
+      });
+
+      if (result && result[0]) {
+        const file = result[0];
+        const newDoc = {
+          title: file.name || (type === 'pdf' ? 'Imported PDF' : 'Imported Image'),
+          type: type,
+          uri: file.uri
+        };
+        
+        return await FileService.addDocument(newDoc);
+      }
+    } catch (error: any) {
+      // User cancelled the picker
+      if (DocumentPicker.isCancel(error)) {
+        console.log('User cancelled document picker');
+        return null;
+      }
+      console.error('Error importing document:', error);
+      Alert.alert('Error', 'Failed to import document');
+    }
+    return null;
   }
 
   /**

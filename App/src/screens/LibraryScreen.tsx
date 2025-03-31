@@ -29,11 +29,37 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const handleImportDocument = async () => {
     setImporting(true);
     try {
-      const document = await FileService.importDocument('pdf');
-      if (document) {
-        setDocuments(prev => [...prev, document]);
-        Alert.alert('Success', 'Document imported successfully');
-      }
+      // Show options for import type
+      Alert.alert(
+        'Import Document',
+        'Choose document type',
+        [
+          {
+            text: 'PDF',
+            onPress: async () => {
+              const document = await FileService.importDocument('pdf');
+              if (document) {
+                setDocuments(prev => [...prev, document]);
+                Alert.alert('Success', 'PDF document imported successfully');
+              }
+            }
+          },
+          {
+            text: 'Image',
+            onPress: async () => {
+              const document = await FileService.importDocument('image');
+              if (document) {
+                setDocuments(prev => [...prev, document]);
+                Alert.alert('Success', 'Image document imported successfully');
+              }
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
     } catch (error) {
       console.error('Error importing document:', error);
       Alert.alert('Error', 'Failed to import document');
