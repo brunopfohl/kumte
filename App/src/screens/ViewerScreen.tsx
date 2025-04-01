@@ -39,6 +39,7 @@ export const ViewerScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState(0);
+  const [showDebug, setShowDebug] = useState(false);
   const [fileInfo, setFileInfo] = useState<FileInfo>({
     exists: false,
     size: 0,
@@ -299,6 +300,10 @@ export const ViewerScreen = () => {
     }));
   };
 
+  const toggleDebugPanel = () => {
+    setShowDebug(prev => !prev);
+  };
+
   const renderContent = () => {
     if (error) {
       return (
@@ -380,22 +385,31 @@ export const ViewerScreen = () => {
         {renderContent()}
       </View>
 
-      <View style={styles.debugPanel}>
-        <Text style={styles.debugTitle}>Debug Information</Text>
-        <ScrollView style={styles.debugContent}>
-          <Text style={styles.debugText}>Type: {type}</Text>
-          <Text style={styles.debugText}>URI: {uri}</Text>
-          <Text style={styles.debugText}>Loading: {loading ? 'Yes' : 'No'}</Text>
-          <Text style={styles.debugText}>Source Status: {debugInfo.sourceStatus}</Text>
-          <Text style={styles.debugText}>File Exists: {fileInfo.exists ? 'Yes' : 'No'}</Text>
-          <Text style={styles.debugText}>File Size: {fileInfo.size} bytes</Text>
-          <Text style={styles.debugText}>File Type: {fileInfo.isLocal ? 'Local' : 'Remote'}</Text>
-          <Text style={styles.debugText}>Load Attempts: {debugInfo.loadAttempts}</Text>
-          {type === 'pdf' && <Text style={styles.debugText}>PDF Pages: {pdfPages}</Text>}
-          {error && <Text style={styles.debugError}>Error: {error}</Text>}
-          <Text style={styles.debugText}>Last Update: {debugInfo.lastUpdate}</Text>
-        </ScrollView>
-      </View>
+      {showDebug && (
+        <View style={styles.debugPanel}>
+          <Text style={styles.debugTitle}>Debug Information</Text>
+          <ScrollView style={styles.debugContent}>
+            <Text style={styles.debugText}>Type: {type}</Text>
+            <Text style={styles.debugText}>URI: {uri}</Text>
+            <Text style={styles.debugText}>Loading: {loading ? 'Yes' : 'No'}</Text>
+            <Text style={styles.debugText}>Source Status: {debugInfo.sourceStatus}</Text>
+            <Text style={styles.debugText}>File Exists: {fileInfo.exists ? 'Yes' : 'No'}</Text>
+            <Text style={styles.debugText}>File Size: {fileInfo.size} bytes</Text>
+            <Text style={styles.debugText}>File Type: {fileInfo.isLocal ? 'Local' : 'Remote'}</Text>
+            <Text style={styles.debugText}>Load Attempts: {debugInfo.loadAttempts}</Text>
+            {type === 'pdf' && <Text style={styles.debugText}>PDF Pages: {pdfPages}</Text>}
+            {error && <Text style={styles.debugError}>Error: {error}</Text>}
+            <Text style={styles.debugText}>Last Update: {debugInfo.lastUpdate}</Text>
+          </ScrollView>
+        </View>
+      )}
+
+      <TouchableOpacity 
+        style={styles.debugButton} 
+        onPress={toggleDebugPanel}
+      >
+        <Text style={styles.debugButtonText}>🛠️</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -470,6 +484,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     padding: 10,
     maxHeight: 200,
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    borderTopWidth: 1,
+    borderTopColor: '#444',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   debugTitle: {
     color: '#fff',
@@ -489,5 +515,26 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
     fontSize: 12,
     marginBottom: 2,
+  },
+  debugButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 101,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  debugButtonText: {
+    fontSize: 20,
+    color: '#fff',
   },
 }); 
