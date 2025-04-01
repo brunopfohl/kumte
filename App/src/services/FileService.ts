@@ -1,19 +1,21 @@
-import { Alert } from 'react-native';
-import { pick, types} from '@react-native-documents/picker';
+import { Alert, Platform, NativeModules } from 'react-native';
+import { pick, types } from '@react-native-documents/picker';
+import RNFS from 'react-native-fs';
 
 export interface Document {
   id: string;
   title: string;
   type: 'pdf' | 'image';
   uri: string;
-  date: string;
+  originalUri?: string; // Store the original content:// URI if available
+  date: Date;
 }
 
 // Mock document data for now - will be replaced with actual API/storage calls
 const mockDocuments: Document[] = [
-  { id: '1001', title: 'Research Paper', type: 'pdf', uri: 'mock-uri-1', date: '10 May 2023' },
-  { id: '1002', title: 'Meeting Notes', type: 'image', uri: 'mock-uri-2', date: '12 June 2023' },
-  { id: '1003', title: 'Project Proposal', type: 'pdf', uri: 'mock-uri-3', date: '23 July 2023' },
+  { id: '1001', title: 'Research Paper', type: 'pdf', uri: 'mock-uri-1', date: new Date('2023-05-10') },
+  { id: '1002', title: 'Meeting Notes', type: 'image', uri: 'mock-uri-2', date: new Date('2023-06-12') },
+  { id: '1003', title: 'Project Proposal', type: 'pdf', uri: 'mock-uri-3', date: new Date('2023-07-23') },
 ];
 
 /**
@@ -21,6 +23,8 @@ const mockDocuments: Document[] = [
  * This abstraction will make it easier to switch between local storage and API later
  */
 export class FileService {
+  private documents: Document[] = [];
+
   /**
    * Get all documents
    */
@@ -54,11 +58,7 @@ export class FileService {
     const newDocument: Document = {
       ...document,
       id: Date.now().toString(),
-      date: new Date().toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      })
+      date: new Date(),
     };
 
     // Simulate API call
@@ -89,36 +89,85 @@ export class FileService {
   }
 
   /**
-   * Import a document using document picker
+   * Import a document using the Storage Access Framework and convert to file URI
+   * Creates a local copy in the app's cache directory for reliable access
    */
-  static async importDocument(type: 'pdf' | 'image'): Promise<Document | null> {
+  async importDocument(): Promise<Document | null> {
     try {
-      const result = await pick({
-        type: type === 'pdf' 
-          ? [types.pdf]
-          : [types.images]
+      // Use ACTION_OPEN_DOCUMENT via @react-native-documents/picker
+      const [result] = await pick({
+        type: [types.pdf, types.images],
+        allowMultiSelection: false,
+        copyTo: 'cachesDirectory', // Always copy to cache for reliable file:// access
       });
 
-      if (result && result[0]) {
-        const file = result[0];
-        const newDoc = {
-          title: file.name || (type === 'pdf' ? 'Imported PDF' : 'Imported Image'),
-          type: type,
-          uri: file.uri
-        };
-        
-        return await FileService.addDocument(newDoc);
+      console.log('File selected:', result);
+      
+      if (!result.uri) {
+        throw new Error("Document URI is undefined");
       }
+
+      // Create document object
+      const fileExtension = result.name?.split('.').pop()?.toLowerCase() || '';
+      const documentType = fileExtension === 'pdf' ? 'pdf' : 'image';
+      
+      // Get a file:// URI from the result
+      let fileUri = result.uri;
+      const originalUri = result.uri;
+      
+      // For content:// URIs, create a local copy manually if necessary
+      if (result.uri.startsWith('content://')) {
+        // First check if we already have a file copy from the picker
+        const response = result as any; // Use any to bypass TypeScript checking
+        if (response.fileCopyUri) {
+          fileUri = response.fileCopyUri;
+          console.log('Using copied file URI from picker:', fileUri);
+        } else {
+          try {
+            const timestamp = Date.now();
+            const fileName = result.name || `document_${timestamp}.${fileExtension || 'pdf'}`;
+            const destPath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+            
+            // On Android, use copyFile
+            if (Platform.OS === 'android') {
+              console.log('Copying content URI to file URI:', result.uri, ' -> ', destPath);
+              await RNFS.copyFile(result.uri, destPath);
+              fileUri = `file://${destPath}`;
+              console.log('Copied to file URI:', fileUri);
+            }
+          } catch (copyError) {
+            console.warn('Failed to copy file, falling back to content URI:', copyError);
+            // If copy fails, use original URI as fallback
+            fileUri = result.uri;
+          }
+        }
+      }
+
+      // Create new document
+      const newDocument: Document = {
+        id: Date.now().toString(),
+        title: result.name || 'Untitled Document',
+        type: documentType,
+        uri: fileUri,
+        originalUri: originalUri !== fileUri ? originalUri : undefined,
+        date: new Date(),
+      };
+
+      // Store document
+      this.documents.push(newDocument);
+      console.log('Imported document:', newDocument);
+      
+      return newDocument;
     } catch (error: any) {
-      // User cancelled the picker
+      // Handle cancellation by user
       if (error.code === 'DOCUMENT_PICKER_CANCELED') {
-        console.log('User cancelled document picker');
+        console.log('User cancelled document picking');
         return null;
       }
+      
       console.error('Error importing document:', error);
-      Alert.alert('Error', 'Failed to import document');
+      throw error;
     }
-    return null;
   }
 
   /**
@@ -145,4 +194,23 @@ export class FileService {
       }, 1000);
     });
   }
-} 
+
+  /**
+   * Get all documents that have been imported
+   */
+  getDocuments(): Document[] {
+    return [...this.documents];
+  }
+
+  /**
+   * Get a document by ID
+   */
+  getDocumentById(id: string): Document | undefined {
+    return this.documents.find(doc => doc.id === id);
+  }
+}
+
+// Singleton instance
+export const documentService = new FileService();
+export type { Document };
+export { FileService }; 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, Alert, StatusBar } from 'react-native';
 import { LibraryScreenProps } from '../types';
-import { FileService, Document } from '../services/FileService';
+import { FileService, Document, documentService } from '../services/FileService';
 import Icon from '../components/icons';
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
@@ -16,7 +16,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const loadDocuments = async () => {
     setLoading(true);
     try {
-      const docs = await FileService.getDocuments();
+      const docs = await documentService.getDocuments();
       setDocuments(docs);
     } catch (error) {
       console.error('Error loading documents:', error);
@@ -37,20 +37,30 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           {
             text: 'PDF',
             onPress: async () => {
-              const document = await FileService.importDocument('pdf');
-              if (document) {
-                setDocuments(prev => [...prev, document]);
-                Alert.alert('Success', 'PDF document imported successfully');
+              try {
+                const document = await documentService.importDocument();
+                if (document) {
+                  setDocuments(prev => [...prev, document]);
+                  Alert.alert('Success', 'PDF document imported successfully');
+                }
+              } catch (error) {
+                console.error('Error importing PDF:', error);
+                Alert.alert('Error', 'Failed to import PDF document');
               }
             }
           },
           {
             text: 'Image',
             onPress: async () => {
-              const document = await FileService.importDocument('image');
-              if (document) {
-                setDocuments(prev => [...prev, document]);
-                Alert.alert('Success', 'Image document imported successfully');
+              try {
+                const document = await documentService.importDocument();
+                if (document) {
+                  setDocuments(prev => [...prev, document]);
+                  Alert.alert('Success', 'Image document imported successfully');
+                }
+              } catch (error) {
+                console.error('Error importing image:', error);
+                Alert.alert('Error', 'Failed to import image document');
               }
             }
           },
@@ -60,9 +70,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           }
         ]
       );
-    } catch (error) {
-      console.error('Error importing document:', error);
-      Alert.alert('Error', 'Failed to import document');
     } finally {
       setImporting(false);
     }
@@ -171,7 +178,16 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
                 
                 <View style={styles.documentInfo}>
                   <Text style={styles.documentTitle}>{doc.title}</Text>
-                  <Text style={styles.documentMeta}>{doc.type.toUpperCase()} • {doc.date}</Text>
+                  <Text style={styles.documentMeta}>
+                    {doc.type.toUpperCase()} • {doc.date instanceof Date ? 
+                      doc.date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      }) : 
+                      String(doc.date)
+                    }
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}

@@ -5,14 +5,20 @@ export type RootStackParamList = {
   Camera: undefined;
   Viewer: {
     uri: string;
-    type: string;
+    type: 'pdf' | 'image';
   };
-  Chat: {
-    documentContext: string;
-  };
+  Chat: undefined;
 };
 
 export type LibraryScreenProps = NativeStackScreenProps<RootStackParamList, 'Library'>;
 export type CameraScreenProps = NativeStackScreenProps<RootStackParamList, 'Camera'>;
 export type ViewerScreenProps = NativeStackScreenProps<RootStackParamList, 'Viewer'>;
-export type ChatScreenProps = NativeStackScreenProps<RootStackParamList, 'Chat'>; 
+export type ChatScreenProps = NativeStackScreenProps<RootStackParamList, 'Chat'>;
+
+export interface Document {
+  id: string;
+  title: string;
+  type: 'pdf' | 'image';
+  uri: string;
+  date: string;
+} 
