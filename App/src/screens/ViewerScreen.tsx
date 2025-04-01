@@ -35,7 +35,7 @@ export const ViewerScreen = () => {
   const route = useRoute<ViewerScreenRouteProp>();
   const navigation = useNavigation<NavigationProp>();
   const { uri, type } = route.params;
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState(0);
@@ -45,7 +45,7 @@ export const ViewerScreen = () => {
     path: uri,
     isLocal: uri.startsWith('file://') || uri.startsWith('content://'),
   });
-  
+
   const [debugInfo, setDebugInfo] = useState<DebugInfo>({
     uri,
     type,
@@ -70,51 +70,50 @@ export const ViewerScreen = () => {
     const checkFile = async () => {
       try {
         console.log('Checking file with URI:', uri);
-        
-        // Handle content:// URIs (from Android storage access framework)
-        if (uri.startsWith('content://')) {
-          console.log('Content URI detected');
-          
-          // Content URIs are handled directly by the PDF viewer
-          setFileInfo(prev => ({
-            ...prev,
-            exists: true,
-            path: uri,
-            isLocal: true,
-          }));
 
-          setDebugInfo(prev => ({
-            ...prev,
-            sourceStatus: 'content uri ready',
-            fileInfo: {
-              exists: true,
-              size: 0, // Size cannot be determined for content URIs
-              path: uri,
-              isLocal: true,
-            },
-          }));
-          setLoading(false);
-        } 
         // Handle file:// URIs (preferred for better compatibility)
-        else if (uri.startsWith('file://')) {
+        if (uri.startsWith('file://')) {
           console.log('File URI detected');
-          
+
           // For Android, we may need to remove the file:// prefix when checking with RNFS
-          const cleanUri = Platform.OS === 'android' ? uri.replace('file://', '') : uri;
-          
+          let cleanUri = uri;
+
+          // On Android, remove file:// prefix for RNFS operations
+          if (Platform.OS === 'android') {
+            cleanUri = uri.replace('file://', '');
+            console.log('Android adjusted path:', cleanUri);
+          }
+
           try {
+            console.log('Checking if file exists at:', cleanUri);
             const exists = await RNFS.exists(cleanUri);
             console.log('File exists check result:', exists);
 
             if (exists) {
               const stats = await RNFS.stat(cleanUri);
               console.log('File stats:', stats);
+              console.log('File found with size:', stats.size, 'bytes');
+
+              // Try to read a small part of the file to verify it's accessible
+              try {
+                const firstBytes = await RNFS.read(cleanUri, 100, 0, 'base64');
+                console.log('Successfully read first bytes of file:', firstBytes.substring(0, 20) + '...');
+              } catch (readError) {
+                console.error('Error reading file content:', readError);
+              }
+
+              // On Android, the file:// prefix is important for the PDF viewer
+              const viewerUri = Platform.OS === 'android'
+                ? uri.startsWith('file://') ? uri : `file://${cleanUri}`
+                : uri;
+
+              console.log('Using viewer URI:', viewerUri);
 
               setFileInfo(prev => ({
                 ...prev,
                 exists: true,
                 size: stats.size,
-                path: uri, // Keep original file:// prefix for the viewer
+                path: viewerUri,
               }));
 
               setDebugInfo(prev => ({
@@ -123,7 +122,7 @@ export const ViewerScreen = () => {
                 fileInfo: {
                   exists: true,
                   size: stats.size,
-                  path: uri,
+                  path: viewerUri,
                   isLocal: true,
                 },
               }));
@@ -146,18 +145,42 @@ export const ViewerScreen = () => {
               error: errorMessage,
             }));
           }
-        } 
+        }
+        // Handle content:// URIs (from Android storage access framework)
+        else if (uri.startsWith('content://')) {
+          console.log('Content URI detected');
+
+          // Content URIs are handled directly by the PDF viewer
+          setFileInfo(prev => ({
+            ...prev,
+            exists: true,
+            path: uri,
+            isLocal: true,
+          }));
+
+          setDebugInfo(prev => ({
+            ...prev,
+            sourceStatus: 'content uri ready',
+            fileInfo: {
+              exists: true,
+              size: 0, // Size cannot be determined for content URIs
+              path: uri,
+              isLocal: true,
+            },
+          }));
+          setLoading(false);
+        }
         // Handle remote URIs (http://, https://)
         else if (uri.startsWith('http')) {
           console.log('Remote URI detected, checking accessibility:', uri);
-          
+
           try {
             const response = await fetch(uri, { method: 'HEAD' });
-            
+
             if (response.ok) {
               const contentLength = response.headers.get('content-length');
               console.log('Remote file accessible, size:', contentLength);
-              
+
               setFileInfo(prev => ({
                 ...prev,
                 exists: true,
@@ -194,7 +217,7 @@ export const ViewerScreen = () => {
               error: `Network error: ${errorMessage}`,
             }));
           }
-        } 
+        }
         // Unknown URI scheme
         else {
           console.warn('Unknown URI scheme:', uri);
@@ -222,7 +245,9 @@ export const ViewerScreen = () => {
 
   const handlePdfLoadComplete = (numberOfPages: number) => {
     console.log(`PDF loaded successfully with ${numberOfPages} pages`);
-    setLoading(false);
+    if (loading) {
+      setLoading(false);
+    }
     setPdfPages(numberOfPages);
     setDebugInfo(prev => ({
       ...prev,
@@ -230,6 +255,7 @@ export const ViewerScreen = () => {
       pdfPages: numberOfPages,
       lastUpdate: new Date().toISOString(),
       sourceStatus: 'loaded successfully',
+      loadAttempts: prev.loadAttempts + 1,
     }));
   };
 
@@ -283,27 +309,33 @@ export const ViewerScreen = () => {
       );
     }
 
-    if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0000ff" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      );
-    }
-
     if (type === 'pdf') {
+      // Prepare source object based on URI type
+      let source: any = { uri: fileInfo.path, cache: false };
+
+      // For file:// URIs, ensure proper handling on Android
+      if (fileInfo.path.startsWith('file://') && Platform.OS === 'android') {
+        // On Android, we may need additional settings
+        source = {
+          uri: fileInfo.path,
+          cache: false,
+          // Add a timestamp parameter to avoid caching issues
+          cacheFileName: `pdf-${Date.now()}.pdf`
+        };
+        console.log('Using optimized Android PDF source config:', source);
+      }
+
       return (
         <Pdf
-          source={{
-            uri: fileInfo.path,
-            cache: true,
-          }}
+          source={source}
           style={styles.pdf}
           onLoadComplete={handlePdfLoadComplete}
           onError={handlePdfError}
           enablePaging={true}
           trustAllCerts={false}
+          enableAnnotationRendering={false}
+          fitPolicy={0}
+          spacing={0}
           renderActivityIndicator={() => (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#0000ff" />
@@ -332,7 +364,7 @@ export const ViewerScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
