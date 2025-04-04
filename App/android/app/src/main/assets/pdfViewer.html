@@ -5,17 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
+    :root {
+      --scale-factor: 1.0;
+    }
     * { 
       box-sizing: border-box; 
       margin: 0; 
       padding: 0; 
     }
+
     html, body { 
       height: 100%; 
       width: 100%; 
       overflow: hidden;
       background-color: #f5f5f5;
     }
+
     #viewerContainer {
       width: 100%;
       height: 100%;
@@ -23,35 +28,45 @@
       position: absolute;
       top: 0;
       left: 0;
+      -webkit-overflow-scrolling: touch;
+      background-color: #f0f0f0;
     }
-    #pdfContainer {
-      margin: 0 auto;
+
+    #pdfContainer { 
+      margin: 0 auto; 
       background-color: white;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      padding: 10px 0;
     }
-    .page {
-      direction: ltr;
-      margin: 10px auto;
-      position: relative;
-      overflow: visible;
-      background-clip: content-box;
-      background-color: white;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    }
-    .page canvas {
+
+    .page { 
+      margin: 10px auto; 
+      position: relative; 
+      overflow: visible; 
+      background-color: white; 
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      border-radius: 2px;
       display: block;
-      margin: 0;
     }
-    .textLayer {
-      position: absolute;
-      left: 0;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      overflow: hidden;
-      opacity: 0.2;
+
+    .textLayer { 
+      position: absolute; 
+      left: 0; 
+      top: 0; 
+      right: 0; 
+      bottom: 0; 
+      overflow: hidden; 
       line-height: 1.0;
+      opacity: 0.2;
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
     }
+
     .textLayer span {
       color: transparent;
       position: absolute;
@@ -59,71 +74,97 @@
       cursor: text;
       transform-origin: 0% 0%;
     }
-    .textLayer .highlight {
-      margin: -1px;
-      padding: 1px;
-      background-color: rgba(180, 0, 170, 0.2);
+
+    .textLayer span::selection {
+      background-color: #b4d5fe;
+      color: transparent;
+    }
+
+    #controls { 
+      position: fixed; 
+      bottom: 10px; 
+      left: 0; 
+      right: 0; 
+      text-align: center; 
+      background-color: rgba(255,255,255,0.8); 
+      padding: 10px; 
+      z-index: 1000;
+      border-top: 1px solid rgba(0,0,0,0.1);
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    }
+
+    #controls button { 
+      padding: 8px 12px; 
+      margin: 0 5px; 
+      background-color: #2196F3; 
+      color: white; 
+      border: none; 
+      border-radius: 4px; 
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    #controls button:disabled { 
+      background-color: #cccccc; 
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    #controls button:active {
+      transform: translateY(1px);
+      box-shadow: 0 0 1px rgba(0,0,0,0.2);
+    }
+
+    #pageNumber { 
+      padding: 8px; 
+      width: 50px; 
+      text-align: center; 
+      border: 1px solid #ddd; 
       border-radius: 4px;
+      margin: 0 5px;
     }
-    .textLayer .highlight.begin {
-      border-radius: 4px 0 0 4px;
+
+    #pageCount { 
+      padding: 8px; 
+      margin-left: 5px; 
+      color: #333;
+      font-weight: bold;
     }
-    .textLayer .highlight.end {
-      border-radius: 0 4px 4px 0;
+
+    #errorMessage { 
+      color: #d32f2f; 
+      text-align: center; 
+      margin: 20px;
+      padding: 15px;
+      background-color: #ffebee;
+      border-radius: 4px;
+      border: 1px solid #ffcdd2;
+      font-weight: bold;
     }
-    .textLayer .highlight.middle {
-      border-radius: 0;
-    }
-    .textLayer .highlight.selected {
-      background-color: rgba(0, 100, 0, 0.2);
-    }
+
     .loadingMessage {
       color: #333;
       font-size: 16px;
       text-align: center;
       padding: 20px;
     }
+
     .errorMessage {
       color: red;
       font-size: 16px;
       text-align: center;
       padding: 20px;
     }
-    /* Page navigation controls */
-    #controls {
-      position: fixed;
-      bottom: 10px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      background-color: rgba(255,255,255,0.8);
-      padding: 10px;
-      z-index: 1000;
-    }
-    #controls button {
-      padding: 8px 12px;
-      margin: 0 5px;
-      background-color: #2196F3;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #controls button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-    }
-    #pageNumber {
-      padding: 8px;
-      width: 50px;
-      text-align: center;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
-    #pageCount {
-      padding: 8px;
-      margin-left: 5px;
-      color: #333;
+
+    /* Improve touch handling */
+    canvas {
+      touch-action: none;
+      -ms-touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     }
   </style>
 </head>
@@ -144,10 +185,10 @@
   </div>
 
   <script>
-    // Configure pdf.js worker
+    // Configure PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    
-    // Get viewer elements
+
+    // Elements
     const messageContainer = document.getElementById('messageContainer');
     const viewerContainer = document.getElementById('viewerContainer');
     const pdfContainer = document.getElementById('pdfContainer');
@@ -157,17 +198,142 @@
     const pageNumberInput = document.getElementById('pageNumber');
     const pageCountSpan = document.getElementById('pageCount');
 
-    // PDF state variables
+    // Variables
     let pdfDoc = null;
-    let pdfPageRendering = false;
-    let pageNumPending = null;
-    let currentScale = 1.0;
     let currentPage = 1;
     let totalPages = 0;
-    let renderedPages = {};
-    let currentUrl = '';
+    let currentScale = 1.0;
+    let minScale = 0.5;  // Minimum zoom level
+    let maxScale = 3.0;  // Maximum zoom level
+    let initialScale = 1.0;
 
-    // Get the PDF URL from the query parameters
+    // Touch event variables
+    let touchStartTime = 0;
+    let touchStartDistance = 0;
+    let touchStartScale = 1;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTapTime = 0;
+
+    // Add event listeners for zoom and pan
+    viewerContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+    viewerContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+    viewerContainer.addEventListener('touchend', handleTouchEnd, { passive: false });
+    viewerContainer.addEventListener('wheel', handleWheel, { passive: false });
+
+    // Add event listener for text selection
+    document.addEventListener('selectionchange', function() {
+      const selection = document.getSelection();
+      if (selection && selection.toString().trim()) {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'textSelected',
+            selectedText: selection.toString().trim()
+          }));
+        }
+      }
+    });
+
+    function handleTouchStart(e) {
+      if (e.touches.length === 2) {
+        // Pinch to zoom
+        touchStartTime = Date.now();
+        touchStartDistance = Math.hypot(
+          e.touches[0].pageX - e.touches[1].pageX,
+          e.touches[0].pageY - e.touches[1].pageY
+        );
+        touchStartScale = currentScale;
+        e.preventDefault();
+      } else if (e.touches.length === 1) {
+        // Single touch for panning or double tap
+        touchStartX = e.touches[0].pageX;
+        touchStartY = e.touches[0].pageY;
+        
+        // Check for double tap
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          // Double tap detected
+          if (currentScale > initialScale) {
+            // If zoomed in, reset to fit width
+            currentScale = initialScale;
+          } else {
+            // If at fit width, zoom in to 2x
+            currentScale = Math.min(maxScale, initialScale * 2);
+          }
+          renderAllVisiblePages();
+          e.preventDefault();
+        }
+        lastTapTime = now;
+      }
+    }
+
+    function handleTouchMove(e) {
+      if (e.touches.length === 2) {
+        // Pinch to zoom
+        const currentDistance = Math.hypot(
+          e.touches[0].pageX - e.touches[1].pageX,
+          e.touches[0].pageY - e.touches[1].pageY
+        );
+        
+        const scaleFactor = currentDistance / touchStartDistance;
+        currentScale = Math.min(maxScale, Math.max(minScale, touchStartScale * scaleFactor));
+        
+        renderAllVisiblePages();
+        e.preventDefault();
+      }
+    }
+
+    function handleTouchEnd(e) {
+      // Touch end event handling
+    }
+
+    function handleWheel(e) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        
+        // Calculate new scale with wheel delta
+        const scaleDelta = e.deltaY > 0 ? 0.9 : 1.1;
+        currentScale = Math.min(maxScale, Math.max(minScale, currentScale * scaleDelta));
+        
+        renderAllVisiblePages();
+      }
+    }
+
+    // Calculate the scale to fit the page width
+    function calculateFitToWidthScale(page) {
+      const viewport = page.getViewport({ scale: 1.0 });
+      const viewerWidth = viewerContainer.clientWidth;
+      
+      // Account for page margin
+      const horizontalPadding = 40; // 20px on each side
+      
+      // Calculate the scale that would make the page fit the container width
+      return (viewerWidth - horizontalPadding) / viewport.width;
+    }
+
+    function renderAllVisiblePages() {
+      // Clear the container
+      pdfContainer.innerHTML = '';
+      
+      // Render current page with updated scale
+      renderPage(currentPage);
+    }
+
+    // Show an error message
+    function showError(message) {
+      messageContainer.innerHTML = `<div class="errorMessage">Error: ${message}</div>`;
+      controls.style.display = 'none';
+      
+      // Send error message to React Native
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'error',
+          message: message
+        }));
+      }
+    }
+
+    // Get PDF URL from query parameters
     function getPdfUrl() {
       try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -190,318 +356,256 @@
       }
     }
 
-    // Show error message
-    function showError(message) {
-      console.error('PDF Viewer Error:', message);
-      messageContainer.innerHTML = `<div class="errorMessage">Error: ${message}</div>`;
-      
-      // Send error back to React Native
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'error',
-          message: message
-        }));
+    // For data URI handling in JavaScript messages
+    function initWithDataUri(dataUri) {
+      try {
+        // Set timeout for loading - if PDF isn't loaded in 30 seconds, show error
+        const timeoutId = setTimeout(() => {
+          showError('PDF loading timed out. The file may be too large or corrupted.');
+        }, 30000);
+        
+        // Strip the data URI prefix
+        let pdfData = dataUri;
+        if (dataUri.startsWith('data:application/pdf;base64,')) {
+          pdfData = dataUri.substring(dataUri.indexOf(',')+1);
+        }
+        
+        try {
+          // Decode the base64 data and create a Uint8Array
+          const binaryData = atob(pdfData);
+          const array = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+              array[i] = binaryData.charCodeAt(i);
+          }
+          
+          // Load the PDF
+          pdfjsLib.getDocument({data: array}).promise.then(function(pdf) {
+            // Clear the timeout since PDF loaded successfully
+            clearTimeout(timeoutId);
+            
+            pdfDoc = pdf;
+            totalPages = pdf.numPages;
+            
+            // Update page count
+            pageCountSpan.textContent = '/ ' + totalPages;
+            
+            // Send loaded message to React Native
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'loaded',
+                pageCount: totalPages
+              }));
+            }
+            
+            // Calculate the initial scale for the first page
+            pdfDoc.getPage(1).then(function(page) {
+              initialScale = calculateFitToWidthScale(page);
+              currentScale = initialScale;
+              
+              // Clear message container
+              messageContainer.innerHTML = '';
+              
+              // Render first page with calculated scale
+              renderPage(1);
+              
+              // Set up navigation
+              prevPageBtn.addEventListener('click', onPrevPage);
+              nextPageBtn.addEventListener('click', onNextPage);
+              pageNumberInput.addEventListener('change', onPageNumberChange);
+              
+              // Show controls
+              controls.style.display = 'block';
+            });
+            
+          }).catch(function(error) {
+            clearTimeout(timeoutId);
+            console.error('Error loading PDF:', error);
+            showError('Error loading PDF: ' + error.message);
+          });
+        } catch (decodeError) {
+          clearTimeout(timeoutId);
+          console.error('Error decoding PDF data:', decodeError);
+          showError('Error decoding PDF data: ' + decodeError.message);
+        }
+      } catch (e) {
+        console.error('Error in PDF initialization:', e);
+        showError('Error initializing PDF: ' + e.message);
       }
     }
 
-    // Send loaded message to React Native
-    function sendLoadedMessage(pageCount) {
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'loaded',
-          pageCount: pageCount
-        }));
-      }
+    // Handle File URL loading
+    function loadPdfFromUrl(url) {
+      // Set timeout for loading - if PDF isn't loaded in 30 seconds, show error
+      const timeoutId = setTimeout(() => {
+        showError('PDF loading timed out. The file may be too large or corrupted.');
+      }, 30000);
+
+      // Load PDF from URL
+      pdfjsLib.getDocument(url).promise.then(function(pdf) {
+        // Clear the timeout since PDF loaded successfully
+        clearTimeout(timeoutId);
+        
+        pdfDoc = pdf;
+        totalPages = pdf.numPages;
+        
+        // Update page count
+        pageCountSpan.textContent = '/ ' + totalPages;
+        
+        // Send loaded message to React Native
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'loaded',
+            pageCount: totalPages
+          }));
+        }
+        
+        // Calculate the initial scale for the first page
+        pdfDoc.getPage(1).then(function(page) {
+          initialScale = calculateFitToWidthScale(page);
+          currentScale = initialScale;
+          
+          // Clear message container
+          messageContainer.innerHTML = '';
+          
+          // Render first page with calculated scale
+          renderPage(1);
+          
+          // Set up navigation
+          prevPageBtn.addEventListener('click', onPrevPage);
+          nextPageBtn.addEventListener('click', onNextPage);
+          pageNumberInput.addEventListener('change', onPageNumberChange);
+          
+          // Show controls
+          controls.style.display = 'block';
+        });
+        
+      }).catch(function(error) {
+        clearTimeout(timeoutId);
+        console.error('Error loading PDF:', error);
+        showError('Error loading PDF: ' + error.message);
+      });
     }
 
     // Render a specific page
     function renderPage(pageNum) {
-      if (renderedPages[pageNum]) {
-        // Page already rendered, just scroll to it
-        const pageDiv = document.getElementById(`page-${pageNum}`);
-        if (pageDiv) {
-          pageDiv.scrollIntoView();
-          currentPage = pageNum;
-          pageNumberInput.value = currentPage;
-          updateUIState();
-          return;
-        }
-      }
-      
-      pdfPageRendering = true;
-
       // Get the page
       pdfDoc.getPage(pageNum).then(function(page) {
+        // Create a viewport with current scale
         const viewport = page.getViewport({ scale: currentScale });
+        
+        // Calculate the higher resolution rendering for crisp text
+        const pixelRatio = window.devicePixelRatio || 1;
+        const renderViewport = page.getViewport({ scale: currentScale * pixelRatio });
         
         // Create page div
         const pageDiv = document.createElement('div');
         pageDiv.className = 'page';
-        pageDiv.id = `page-${pageNum}`;
-        pageDiv.style.width = `${viewport.width}px`;
-        pageDiv.style.height = `${viewport.height}px`;
+        pageDiv.style.width = viewport.width + 'px';
+        pageDiv.style.height = viewport.height + 'px';
         pdfContainer.appendChild(pageDiv);
         
         // Create canvas for rendering
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        
+        // Set canvas dimensions to match the higher resolution viewport
+        canvas.width = renderViewport.width;
+        canvas.height = renderViewport.height;
+        
+        // Set display size to match the standard viewport
+        canvas.style.width = viewport.width + 'px';
+        canvas.style.height = viewport.height + 'px';
+        
         pageDiv.appendChild(canvas);
         
-        // Create text layer div
+        // Create text layer for text selection
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = 'textLayer';
-        textLayerDiv.style.width = `${viewport.width}px`;
-        textLayerDiv.style.height = `${viewport.height}px`;
+        textLayerDiv.style.width = viewport.width + 'px';
+        textLayerDiv.style.height = viewport.height + 'px';
         pageDiv.appendChild(textLayerDiv);
         
-        // Render PDF page
+        // Render PDF page at higher resolution for sharper text
         const renderContext = {
           canvasContext: context,
-          viewport: viewport
+          viewport: renderViewport,
+          enableWebGL: true
         };
         
         const renderTask = page.render(renderContext);
-        
-        // Wait for rendering to finish
         renderTask.promise.then(function() {
-          // Add page to rendered pages
-          renderedPages[pageNum] = true;
-          
-          // Get the text content
+          // Get and render text content
           return page.getTextContent();
         }).then(function(textContent) {
           // Create text layer
-          const textLayer = new TextLayerBuilder({
-            textLayerDiv: textLayerDiv,
-            pageIndex: page.pageIndex,
-            viewport: viewport
+          pdfjsLib.renderTextLayer({
+            textContent: textContent,
+            container: textLayerDiv,
+            viewport: viewport,
+            textDivs: []
           });
           
-          textLayer.setTextContent(textContent);
-          textLayer.render();
-          
-          // Set current page
+          // Update current page
           currentPage = pageNum;
           pageNumberInput.value = currentPage;
           
-          // Check if we're done rendering
-          pdfPageRendering = false;
-          
-          // If there's a page pending, render it
-          if (pageNumPending !== null) {
-            renderPage(pageNumPending);
-            pageNumPending = null;
-          }
-          
-          // Update UI
+          // Update UI state
           updateUIState();
-        }).catch(function(error) {
-          pdfPageRendering = false;
-          console.error('Error rendering PDF page:', error);
-          showError(`Error rendering page ${pageNum}: ${error.message}`);
         });
-      }).catch(function(error) {
-        pdfPageRendering = false;
-        console.error('Error getting PDF page:', error);
-        showError(`Error getting page ${pageNum}: ${error.message}`);
       });
-    }
-
-    // Queue rendering of a page
-    function queueRenderPage(pageNum) {
-      if (pdfPageRendering) {
-        pageNumPending = pageNum;
-      } else {
-        renderPage(pageNum);
-      }
     }
 
     // Go to previous page
     function onPrevPage() {
-      if (currentPage <= 1) {
-        return;
-      }
+      if (currentPage <= 1) return;
       currentPage--;
-      queueRenderPage(currentPage);
+      renderPage(currentPage);
     }
 
     // Go to next page
     function onNextPage() {
-      if (currentPage >= totalPages) {
-        return;
-      }
+      if (currentPage >= totalPages) return;
       currentPage++;
-      queueRenderPage(currentPage);
+      renderPage(currentPage);
     }
 
-    // Update UI state based on current page
+    // Page number changed
+    function onPageNumberChange() {
+      const pageNum = parseInt(pageNumberInput.value);
+      if (pageNum >= 1 && pageNum <= totalPages && pageNum !== currentPage) {
+        renderPage(pageNum);
+      }
+    }
+
+    // Update UI state
     function updateUIState() {
       prevPageBtn.disabled = currentPage <= 1;
       nextPageBtn.disabled = currentPage >= totalPages;
       pageNumberInput.max = totalPages;
-      controls.style.display = 'block';
     }
 
-    // Text layer builder (simplified)
-    function TextLayerBuilder(options) {
-      this.textLayerDiv = options.textLayerDiv;
-      this.pageIdx = options.pageIndex;
-      this.viewport = options.viewport;
-      this.textDivs = [];
-      this.textContent = null;
-    }
-
-    TextLayerBuilder.prototype = {
-      setTextContent: function(textContent) {
-        this.textContent = textContent;
-      },
-      
-      render: function() {
-        if (!this.textContent) return;
-        
-        const textItems = this.textContent.items;
-        const textDivs = this.textDivs;
-        const viewport = this.viewport;
-        
-        for (let i = 0, len = textItems.length; i < len; i++) {
-          const item = textItems[i];
-          
-          const tx = pdfjsLib.Util.transform(
-            viewport.transform,
-            item.transform
-          );
-          
-          const style = this.calculateStyles(tx, item);
-          
-          const textDiv = document.createElement('span');
-          textDiv.style.left = style.left;
-          textDiv.style.top = style.top;
-          textDiv.style.fontSize = style.fontSize;
-          textDiv.style.fontFamily = style.fontFamily;
-          textDiv.style.transform = style.transform;
-          textDiv.textContent = item.str;
-          
-          this.textLayerDiv.appendChild(textDiv);
-          textDivs.push(textDiv);
+    // Listen for messages from React Native
+    window.addEventListener('message', function(event) {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'loadDataUri' && data.dataUri) {
+          initWithDataUri(data.dataUri);
         }
-      },
-      
-      calculateStyles: function(tx, item) {
-        const style = {};
-        
-        // Text positioning
-        style.left = `${tx[4]}px`;
-        style.top = `${tx[5]}px`;
-        
-        // Font settings
-        style.fontSize = `${tx[0] * 100}%`;
-        style.fontFamily = item.fontName || 'sans-serif';
-        
-        // Apply rotation if needed
-        if (tx[1] !== 0) {
-          const angle = Math.atan2(tx[1], tx[0]);
-          style.transform = `rotate(${angle}rad)`;
-        }
-        
-        return style;
+      } catch (e) {
+        console.error('Error processing message from React Native:', e);
       }
-    };
-
-    // Initialize PDF loading
-    function initPDF() {
-      const url = getPdfUrl();
-      
-      if (!url) {
-        showError('No PDF URL provided');
-        return;
-      }
-      
-      currentUrl = url;
-      console.log('Attempting to load PDF from URL:', url);
-      
-      // Add an extra timeout to make sure the WebView is fully initialized
-      setTimeout(() => {
-        // Load the PDF
-        pdfjsLib.getDocument({
-          url: url,
-          withCredentials: false,
-          cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
-          cMapPacked: true,
-          // Force using range requests for local files to avoid CORS issues
-          rangeChunkSize: 65536,
-          disableStream: false,
-          disableAutoFetch: false
-        }).promise.then(function(pdf) {
-          pdfDoc = pdf;
-          totalPages = pdf.numPages;
-          
-          // Update page count
-          pageCountSpan.textContent = `/ ${totalPages}`;
-          
-          // Hide loading message
-          messageContainer.style.display = 'none';
-          
-          // Send loaded message to React Native
-          sendLoadedMessage(totalPages);
-          
-          // Render first page
-          renderPage(1);
-          
-          // Set up page navigation
-          prevPageBtn.addEventListener('click', onPrevPage);
-          nextPageBtn.addEventListener('click', onNextPage);
-          
-          pageNumberInput.addEventListener('change', function() {
-            const pageNum = parseInt(this.value);
-            if (pageNum >= 1 && pageNum <= totalPages) {
-              queueRenderPage(pageNum);
-            }
-          });
-          
-        }).catch(function(error) {
-          console.error('Error loading PDF:', error);
-          
-          // Get detailed error information
-          let errorDetails = 'Unknown error';
-          if (error instanceof Error) {
-            errorDetails = error.message;
-            // Special handling for common PDF.js errors
-            if (error.name === 'MissingPDFException') {
-              errorDetails = 'The PDF file could not be found or is invalid.';
-            } else if (error.name === 'UnexpectedResponseException') {
-              errorDetails = 'The server responded with an unexpected format.';
-            } else if (error.name === 'InvalidPDFException') {
-              errorDetails = 'The PDF file is invalid or corrupted.';
-            } else if (error.name === 'PasswordException') {
-              errorDetails = 'The PDF file is password protected.';
-            } else if (errorDetails.includes('Access denied') || errorDetails.includes('permission denied')) {
-              errorDetails = 'Storage permission denied. Cannot access files.';
-            }
-          }
-          
-          showError(`Could not load PDF: ${errorDetails}`);
-        });
-      }, 500); // Short delay to ensure WebView is ready
-    }
-
-    // Initialize when the page loads
-    window.addEventListener('load', initPDF);
-
-    // Add additional error handling
-    window.addEventListener('error', function(event) {
-      console.error('Global error:', event.message);
-      showError(`JavaScript error: ${event.message}`);
-      // Send detailed error back to React Native
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'error',
-          message: `JavaScript error: ${event.message} at ${event.filename}:${event.lineno}`
-        }));
-      }
-      return false;
     });
+
+    // Initialize the PDF viewer
+    (function init() {
+      const url = getPdfUrl();
+      if (url) {
+        loadPdfFromUrl(url);
+      } else {
+        // Wait for a message from React Native with data URI
+        console.log('No URL found in query parameters, waiting for data URI message');
+      }
+    })();
   </script>
 </body>
 </html> 
