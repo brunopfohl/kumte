@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Inline PDF Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <link rel="stylesheet" href="file:///android_asset/inline-pdf-viewer.css">
+</head>
+<body>
+  <div id="messageContainer">
+    <div class="loadingMessage">Loading PDF...</div>
+  </div>
+  <div id="viewerContainer">
+    <div id="pdfContainer"></div>
+  </div>
+  <div id="controls" style="display: none;">
+    <button id="prevPage" disabled>Previous</button>
+    <input type="number" id="pageNumber" value="1" min="1" />
+    <span id="pageCount">/ 0</span>
+    <button id="nextPage" disabled>Next</button>
+  </div>
+  <script src="file:///android_asset/inline-pdf-viewer.js"></script>
+</body>
+</html> 
