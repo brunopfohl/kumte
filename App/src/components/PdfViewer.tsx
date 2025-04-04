@@ -41,44 +41,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // JavaScript to inject for debugging and communication
-  const injectedJavaScript = `
-    // Override console.log to send messages to React Native
-    (function() {
-      const originalConsoleLog = console.log;
-      const originalConsoleError = console.error;
-      
-      console.log = function(...args) {
-        originalConsoleLog.apply(console, args);
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'console',
-          level: 'log',
-          message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ')
-        }));
-      };
-      
-      console.error = function(...args) {
-        originalConsoleError.apply(console, args);
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'console',
-          level: 'error',
-          message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ')
-        }));
-      };
-      
-      // Add a global error handler
-      window.addEventListener('error', function(event) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'error',
-          message: 'JavaScript error: ' + event.message + ' at ' + event.filename + ':' + event.lineno
-        }));
-        return false;
-      });
-      
-      true;
-    })();
-  `;
-
   // Handle messages from WebView
   const handleWebViewMessage = (event: any) => {
     try {
@@ -130,30 +92,30 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     // For data URIs - use the dedicated inline viewer HTML file and pass data via postMessage
     if (uri.startsWith('data:application/pdf;base64,')) {
       console.log('Using inline viewer approach for data URI');
-      return {
+      return { 
         uri: INLINE_HTML_PATH,
         headers: { 'Cache-Control': 'no-cache' }
       };
     }
-
+    
     // For file:// URIs and http:// URLs - pass through query param
     if (uri.startsWith('file://') || uri.startsWith('http')) {
-      return {
+      return { 
         uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}`,
         headers: { 'Cache-Control': 'no-cache' }
       };
     }
-
+    
     // For content:// URIs (we pass the URI to the html)
     if (uri.startsWith('content://')) {
-      return {
+      return { 
         uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}`,
         headers: { 'Cache-Control': 'no-cache' }
       };
     }
-
+    
     // Default fallback
-    return {
+    return { 
       uri: HTML_PATH,
       headers: { 'Cache-Control': 'no-cache' }
     };
@@ -191,7 +153,6 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     javaScriptEnabled: true,
     domStorageEnabled: true,
     mixedContentMode: "always" as "always",
-    injectedJavaScript: injectedJavaScript,
     scalesPageToFit: true,
   };
 
