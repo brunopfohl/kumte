@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ScrollView, ActivityIndicator, Platform, PermissionsAndroid } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -8,6 +7,7 @@ import RNFS from 'react-native-fs';
 import ImageViewer from 'react-native-image-zoom-viewer';
 import { DocumentService } from '../services/DocumentService';
 import { FileService } from '../services/FileService';
+import PdfViewer from '../components/PdfViewer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,64 +31,20 @@ interface DebugInfo {
   sourceStatus: string;
   fileInfo: FileInfo;
   loadAttempts: number;
-}
-
-interface WebViewMessage {
-  type: string;
-  message?: string;
-  pageCount?: number;
-  level?: 'log' | 'error' | 'warn' | 'info';
+  selectedText?: string;
 }
 
 export const ViewerScreen = () => {
   const route = useRoute<ViewerScreenRouteProp>();
   const navigation = useNavigation<NavigationProp>();
   const { uri, type } = route.params;
-  const webViewRef = useRef<WebView>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState(0);
   const [showDebug, setShowDebug] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
   
-  // JavaScript to inject into WebView for debugging
-  const injectedJavaScript = `
-    // Override console.log to send messages to React Native
-    (function() {
-      const originalConsoleLog = console.log;
-      const originalConsoleError = console.error;
-      
-      console.log = function(...args) {
-        originalConsoleLog.apply(console, args);
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'console',
-          level: 'log',
-          message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ')
-        }));
-      };
-      
-      console.error = function(...args) {
-        originalConsoleError.apply(console, args);
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'console',
-          level: 'error',
-          message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ')
-        }));
-      };
-      
-      // Add a global error handler
-      window.addEventListener('error', function(event) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'error',
-          message: 'JavaScript error: ' + event.message + ' at ' + event.filename + ':' + event.lineno
-        }));
-        return false;
-      });
-      
-      true;
-    })();
-  `;
-
   const [fileInfo, setFileInfo] = useState<FileInfo>({
     exists: false,
     size: 0,
@@ -184,63 +140,6 @@ export const ViewerScreen = () => {
 
     initializeViewer();
   }, [uri, type]);
-
-  const handleWebViewMessage = (event: any) => {
-    try {
-      const data: WebViewMessage = JSON.parse(event.nativeEvent.data);
-      console.log('Message from WebView:', data);
-
-      if (data.type === 'loaded') {
-        setLoading(false);
-        if (data.pageCount) {
-          setPdfPages(data.pageCount);
-        }
-        setDebugInfo(prev => ({
-          ...prev,
-          loading: false,
-          pdfPages: data.pageCount || 0,
-          lastUpdate: new Date().toISOString(),
-          sourceStatus: 'loaded successfully',
-          loadAttempts: prev.loadAttempts + 1,
-        }));
-      } else if (data.type === 'error') {
-        setLoading(false);
-        setError(data.message || 'Unknown error in PDF viewer');
-        setDebugInfo(prev => ({
-          ...prev,
-          loading: false,
-          error: data.message || 'Unknown error in PDF viewer',
-          lastUpdate: new Date().toISOString(),
-          sourceStatus: 'load failed',
-          loadAttempts: prev.loadAttempts + 1,
-        }));
-      } else if (data.type === 'console') {
-        // Handle console messages from WebView
-        if (data.level === 'error') {
-          console.error('WebView console error:', data.message);
-        } else {
-          console.log('WebView console:', data.message);
-        }
-      }
-    } catch (e) {
-      console.error('Error parsing WebView message:', e);
-    }
-  };
-
-  const handleWebViewError = (err: any) => {
-    console.error('WebView loading error:', err);
-    setLoading(false);
-    const errorMessage = err?.nativeEvent?.description || 'Unknown error occurred while loading';
-    setError(errorMessage);
-    setDebugInfo(prev => ({
-      ...prev,
-      loading: false,
-      error: errorMessage,
-      lastUpdate: new Date().toISOString(),
-      sourceStatus: 'load failed',
-      loadAttempts: prev.loadAttempts + 1,
-    }));
-  };
 
   const toggleDebugPanel = () => {
     setShowDebug(prev => !prev);
@@ -594,406 +493,45 @@ export const ViewerScreen = () => {
     }
   };
 
-  // Get the source URI for our PDF.js WebView based on the file path
-  const getPdfViewerSourceUri = (pdfUri: string): string => {
-    const sanitizedUri = pdfUri.replace(/\s/g, '%20');
-    console.log('Preparing viewer URI for:', sanitizedUri);
-    
-    // For files in our cache directory, we can use a direct file:// reference
-    if (Platform.OS === 'android' && pdfUri.includes(RNFS.CachesDirectoryPath)) {
-      console.log('Using cached file URI:', pdfUri);
-      return `file:///android_asset/pdfViewer.html?file=${encodeURIComponent(sanitizedUri)}`;
-    }
-    
-    // For Android, we use the asset HTML
-    if (Platform.OS === 'android') {
-      return `file:///android_asset/pdfViewer.html?file=${encodeURIComponent(sanitizedUri)}`;
-    }
-    
-    // For iOS
-    if (Platform.OS === 'ios') {
-      return `file://${RNFS.MainBundlePath}/pdfViewer.html?file=${encodeURIComponent(sanitizedUri)}`;
-    }
-    
-    // Fallback
-    return `file:///android_asset/pdfViewer.html?file=${encodeURIComponent(sanitizedUri)}`;
+  // Handle text selection from PDF
+  const handleTextSelected = (text: string) => {
+    console.log('Selected text:', text);
+    setSelectedText(text);
+    setDebugInfo(prev => ({
+      ...prev,
+      selectedText: text,
+      lastUpdate: new Date().toISOString(),
+    }));
   };
 
-  // Create a PDF viewer WebView with the appropriate source
-  const renderPdfViewer = () => {
-    // Handle data URIs directly
-    if (fileInfo.path.startsWith('data:application/pdf;base64,')) {
-      console.log('Using data URI approach for PDF');
-      
-      // For data URIs, we'll inject a different script that loads the PDF directly
-      const pdfViewerHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>PDF Viewer</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            html, body { height: 100%; width: 100%; overflow: hidden; background-color: #f5f5f5; }
-            #viewerContainer { width: 100%; height: 100%; overflow: auto; position: absolute; top: 0; left: 0; }
-            #pdfContainer { margin: 0 auto; background-color: white; }
-            .page { margin: 10px auto; position: relative; overflow: visible; background-color: white; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); }
-            .textLayer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; opacity: 0.2; line-height: 1.0; }
-            .textLayer span { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
-            #controls { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; background-color: rgba(255,255,255,0.8); padding: 10px; z-index: 1000; }
-            #controls button { padding: 8px 12px; margin: 0 5px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            #controls button:disabled { background-color: #cccccc; cursor: not-allowed; }
-            #pageNumber { padding: 8px; width: 50px; text-align: center; border: 1px solid #ddd; border-radius: 4px; }
-            #pageCount { padding: 8px; margin-left: 5px; color: #333; }
-            #errorMessage { color: red; text-align: center; margin: 20px; }
-          </style>
-        </head>
-        <body>
-          <div id="viewerContainer"><div id="pdfContainer"></div></div>
-          <div id="errorMessage" style="display: none;"></div>
-          <div id="controls" style="display: none;">
-            <button id="prevPage" disabled>Previous</button>
-            <input type="number" id="pageNumber" value="1" min="1" />
-            <span id="pageCount">/ 0</span>
-            <button id="nextPage" disabled>Next</button>
-          </div>
-          <script>
-            // Configure PDF.js worker
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            
-            // Variables
-            let pdfDoc = null;
-            let currentPage = 1;
-            let totalPages = 0;
-            let currentScale = 1.0;
-            
-            // Elements
-            const viewerContainer = document.getElementById('viewerContainer');
-            const pdfContainer = document.getElementById('pdfContainer');
-            const controls = document.getElementById('controls');
-            const errorMessage = document.getElementById('errorMessage');
-            const prevPageBtn = document.getElementById('prevPage');
-            const nextPageBtn = document.getElementById('nextPage');
-            const pageNumberInput = document.getElementById('pageNumber');
-            const pageCountSpan = document.getElementById('pageCount');
-            
-            // Show an error message
-            function showError(message) {
-              errorMessage.textContent = message;
-              errorMessage.style.display = 'block';
-              controls.style.display = 'none';
-              
-              // Send error message to React Native
-              if (window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'error',
-                  message: message
-                }));
-              }
-            }
-            
-            // Initialize PDF viewing with data URI
-            try {
-              // Set timeout for loading - if PDF isn't loaded in 30 seconds, show error
-              const timeoutId = setTimeout(() => {
-                showError('PDF loading timed out. The file may be too large or corrupted.');
-              }, 30000);
-              
-              // Load PDF from the data embedded in this HTML
-              const pdfData = '${fileInfo.path.substring(fileInfo.path.indexOf(',')+1)}';
-              
-              // We'll process this in smaller chunks to avoid memory issues
-              try {
-                // Decode the base64 data and create a Uint8Array
-                const binaryData = atob(pdfData);
-                const array = new Uint8Array(binaryData.length);
-                for (let i = 0; i < binaryData.length; i++) {
-                    array[i] = binaryData.charCodeAt(i);
-                }
-                
-                // Load the PDF
-                pdfjsLib.getDocument({data: array}).promise.then(function(pdf) {
-                  // Clear the timeout since PDF loaded successfully
-                  clearTimeout(timeoutId);
-                  
-                  pdfDoc = pdf;
-                  totalPages = pdf.numPages;
-                  
-                  // Update page count
-                  pageCountSpan.textContent = '/ ' + totalPages;
-                  
-                  // Send loaded message to React Native
-                  if (window.ReactNativeWebView) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      type: 'loaded',
-                      pageCount: totalPages
-                    }));
-                  }
-                  
-                  // Render first page
-                  renderPage(1);
-                  
-                  // Set up navigation
-                  prevPageBtn.addEventListener('click', onPrevPage);
-                  nextPageBtn.addEventListener('click', onNextPage);
-                  pageNumberInput.addEventListener('change', onPageNumberChange);
-                  
-                  // Show controls
-                  controls.style.display = 'block';
-                }).catch(function(error) {
-                  clearTimeout(timeoutId);
-                  console.error('Error loading PDF:', error);
-                  showError('Error loading PDF: ' + error.message);
-                });
-              } catch (decodeError) {
-                clearTimeout(timeoutId);
-                console.error('Error decoding PDF data:', decodeError);
-                showError('Error decoding PDF data: ' + decodeError.message);
-              }
-              
-              // Render a specific page
-              function renderPage(pageNum) {
-                // Get the page
-                pdfDoc.getPage(pageNum).then(function(page) {
-                  const viewport = page.getViewport({scale: currentScale});
-                  
-                  // Create page div
-                  const pageDiv = document.createElement('div');
-                  pageDiv.className = 'page';
-                  pageDiv.style.width = viewport.width + 'px';
-                  pageDiv.style.height = viewport.height + 'px';
-                  pdfContainer.appendChild(pageDiv);
-                  
-                  // Create canvas for rendering
-                  const canvas = document.createElement('canvas');
-                  const context = canvas.getContext('2d');
-                  canvas.width = viewport.width;
-                  canvas.height = viewport.height;
-                  pageDiv.appendChild(canvas);
-                  
-                  // Create text layer for text selection
-                  const textLayerDiv = document.createElement('div');
-                  textLayerDiv.className = 'textLayer';
-                  textLayerDiv.style.width = viewport.width + 'px';
-                  textLayerDiv.style.height = viewport.height + 'px';
-                  pageDiv.appendChild(textLayerDiv);
-                  
-                  // Render PDF page
-                  const renderContext = {
-                    canvasContext: context,
-                    viewport: viewport
-                  };
-                  
-                  const renderTask = page.render(renderContext);
-                  renderTask.promise.then(function() {
-                    // Get and render text content
-                    return page.getTextContent();
-                  }).then(function(textContent) {
-                    // Create text layer
-                    const textLayer = new TextLayerBuilder({
-                      textLayerDiv: textLayerDiv,
-                      pageIndex: page.pageIndex,
-                      viewport: viewport
-                    });
-                    
-                    textLayer.setTextContent(textContent);
-                    textLayer.render();
-                    
-                    // Update current page
-                    currentPage = pageNum;
-                    pageNumberInput.value = currentPage;
-                    
-                    // Update UI state
-                    updateUIState();
-                  });
-                });
-              }
-              
-              // Go to previous page
-              function onPrevPage() {
-                if (currentPage <= 1) return;
-                currentPage--;
-                renderPage(currentPage);
-              }
-              
-              // Go to next page
-              function onNextPage() {
-                if (currentPage >= totalPages) return;
-                currentPage++;
-                renderPage(currentPage);
-              }
-              
-              // Page number changed
-              function onPageNumberChange() {
-                const pageNum = parseInt(pageNumberInput.value);
-                if (pageNum >= 1 && pageNum <= totalPages && pageNum !== currentPage) {
-                  renderPage(pageNum);
-                }
-              }
-              
-              // Update UI state
-              function updateUIState() {
-                prevPageBtn.disabled = currentPage <= 1;
-                nextPageBtn.disabled = currentPage >= totalPages;
-                pageNumberInput.max = totalPages;
-              }
-              
-              // Text layer builder
-              function TextLayerBuilder(options) {
-                this.textLayerDiv = options.textLayerDiv;
-                this.pageIndex = options.pageIndex;
-                this.viewport = options.viewport;
-                this.textDivs = [];
-                this.textContent = null;
-              }
-              
-              TextLayerBuilder.prototype = {
-                setTextContent: function(textContent) {
-                  this.textContent = textContent;
-                },
-                
-                render: function() {
-                  if (!this.textContent) return;
-                  
-                  const textItems = this.textContent.items;
-                  for (let i = 0; i < textItems.length; i++) {
-                    const item = textItems[i];
-                    
-                    // Get text positioning
-                    const tx = pdfjsLib.Util.transform(this.viewport.transform, item.transform);
-                    
-                    // Create text span
-                    const textDiv = document.createElement('span');
-                    textDiv.style.left = tx[4] + 'px';
-                    textDiv.style.top = tx[5] + 'px';
-                    textDiv.style.fontSize = tx[0] * 100 + '%';
-                    textDiv.style.fontFamily = item.fontName || 'sans-serif';
-                    
-                    // Apply rotation if needed
-                    if (tx[1] !== 0) {
-                      const angle = Math.atan2(tx[1], tx[0]);
-                      textDiv.style.transform = 'rotate(' + angle + 'rad)';
-                    }
-                    
-                    textDiv.textContent = item.str;
-                    this.textLayerDiv.appendChild(textDiv);
-                    this.textDivs.push(textDiv);
-                  }
-                }
-              };
-              
-            } catch (e) {
-              console.error('Error in PDF initialization:', e);
-              showError('Error initializing PDF: ' + e.message);
-            }
-          </script>
-        </body>
-        </html>
-      `;
-      
-      return (
-        <WebView
-          ref={webViewRef}
-          source={{ html: pdfViewerHtml }}
-          style={styles.webView}
-          originWhitelist={['*']}
-          onMessage={handleWebViewMessage}
-          onError={handleWebViewError}
-          startInLoadingState={true}
-          renderLoading={() => (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#0000ff" />
-              <Text style={styles.loadingText}>Loading PDF...</Text>
-            </View>
-          )}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          mixedContentMode="always"
-          cacheEnabled={false}
-          incognito={true}
-          onContentProcessDidTerminate={syntheticEvent => {
-            console.log('Content process terminated, reloading webview...');
-            webViewRef.current?.reload();
-          }}
-          scalesPageToFit={true}
-        />
-      );
-    } 
-    // For file:// URIs
-    else if (fileInfo.path.startsWith('file://')) {
-      console.log('Using file URI for PDF:', fileInfo.path);
-      
-      // For Android, use the PDF.js viewer from assets
-      const viewerSourceUri = getPdfViewerSourceUri(fileInfo.path);
-      console.log('Using PDF.js viewer URI:', viewerSourceUri);
-      
-      return (
-        <WebView
-          ref={webViewRef}
-          source={{ uri: viewerSourceUri }}
-          style={styles.webView}
-          originWhitelist={['*']}
-          allowFileAccess={true}
-          allowUniversalAccessFromFileURLs={true}
-          allowFileAccessFromFileURLs={true}
-          onMessage={handleWebViewMessage}
-          onError={handleWebViewError}
-          startInLoadingState={true}
-          renderLoading={() => (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#0000ff" />
-              <Text style={styles.loadingText}>Loading PDF...</Text>
-            </View>
-          )}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          mixedContentMode="always"
-          cacheEnabled={true}
-          incognito={false}
-          injectedJavaScript={injectedJavaScript}
-          scalesPageToFit={true}
-        />
-      );
-    }
-    // For remote URLs
-    else if (fileInfo.path.startsWith('http')) {
-      console.log('Using remote URL for PDF:', fileInfo.path);
-      
-      const viewerSourceUri = getPdfViewerSourceUri(fileInfo.path);
-      console.log('Using PDF.js viewer URI for remote PDF:', viewerSourceUri);
-      
-      return (
-        <WebView
-          ref={webViewRef}
-          source={{ uri: viewerSourceUri }}
-          style={styles.webView}
-          originWhitelist={['*']}
-          onMessage={handleWebViewMessage}
-          onError={handleWebViewError}
-          startInLoadingState={true}
-          renderLoading={() => (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#0000ff" />
-              <Text style={styles.loadingText}>Loading PDF...</Text>
-            </View>
-          )}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          mixedContentMode="always"
-          cacheEnabled={true}
-          injectedJavaScript={injectedJavaScript}
-          scalesPageToFit={true}
-        />
-      );
-    }
-    
-    // Default fallback for unknown URI types
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Unsupported PDF source: {fileInfo.path}</Text>
-      </View>
-    );
+  // Handle PDF loaded event
+  const handlePdfLoaded = (pageCount: number) => {
+    console.log('PDF loaded with', pageCount, 'pages');
+    setPdfPages(pageCount);
+    setLoading(false);
+    setDebugInfo(prev => ({
+      ...prev,
+      loading: false,
+      pdfPages: pageCount,
+      lastUpdate: new Date().toISOString(),
+      sourceStatus: 'loaded successfully',
+      loadAttempts: prev.loadAttempts + 1,
+    }));
+  };
+
+  // Handle PDF error event
+  const handlePdfError = (errorMessage: string) => {
+    console.error('PDF error:', errorMessage);
+    setLoading(false);
+    setError(errorMessage);
+    setDebugInfo(prev => ({
+      ...prev,
+      loading: false,
+      error: errorMessage,
+      lastUpdate: new Date().toISOString(),
+      sourceStatus: 'load failed',
+      loadAttempts: prev.loadAttempts + 1,
+    }));
   };
 
   const renderContent = () => {
@@ -1032,8 +570,24 @@ export const ViewerScreen = () => {
       );
     }
 
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0000ff" />
+          <Text style={styles.loadingText}>Loading {type === 'pdf' ? 'PDF' : 'image'}...</Text>
+        </View>
+      );
+    }
+
     if (type === 'pdf') {
-      return renderPdfViewer();
+      return (
+        <PdfViewer 
+          uri={fileInfo.path}
+          onTextSelected={handleTextSelected}
+          onLoaded={handlePdfLoaded}
+          onError={handlePdfError}
+        />
+      );
     }
 
     return (
@@ -1071,6 +625,13 @@ export const ViewerScreen = () => {
         {renderContent()}
       </View>
 
+      {selectedText.length > 0 && (
+        <View style={styles.selectionContainer}>
+          <Text style={styles.selectionTitle}>Selected Text:</Text>
+          <Text style={styles.selectionText}>{selectedText}</Text>
+        </View>
+      )}
+
       {showDebug && (
         <View style={styles.debugPanel}>
           <Text style={styles.debugTitle}>Debug Information</Text>
@@ -1084,7 +645,7 @@ export const ViewerScreen = () => {
             <Text style={styles.debugText}>File Type: {fileInfo.isLocal ? 'Local' : 'Remote'}</Text>
             <Text style={styles.debugText}>Load Attempts: {debugInfo.loadAttempts}</Text>
             {type === 'pdf' && <Text style={styles.debugText}>PDF Pages: {pdfPages}</Text>}
-            {type === 'pdf' && <Text style={styles.debugText}>Viewer URI: {getPdfViewerSourceUri(fileInfo.path)}</Text>}
+            {selectedText.length > 0 && <Text style={styles.debugText}>Selected Text: {selectedText}</Text>}
             {error && <Text style={styles.debugError}>Error: {error}</Text>}
             <Text style={styles.debugText}>Last Update: {debugInfo.lastUpdate}</Text>
           </ScrollView>
@@ -1138,11 +699,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  webView: {
-    flex: 1,
-    width: Dimensions.get('window').width,
     backgroundColor: '#fff',
   },
   image: {
@@ -1259,5 +815,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  selectionContainer: {
+    padding: 10,
+    backgroundColor: '#f8f9fa',
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+  },
+  selectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  selectionText: {
+    fontSize: 14,
+    color: '#333',
   },
 }); 
