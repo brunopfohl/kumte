@@ -9,6 +9,7 @@ export interface Document {
   uri: string;
   originalUri?: string; // Store the original content:// URI if available
   date: Date;
+  dataUri?: string; // Store data URI for direct viewing
 }
 
 // Mock document data for now - will be replaced with actual API/storage calls
@@ -22,7 +23,7 @@ const mockDocuments: Document[] = [
  * Service to handle document operations
  * This abstraction will make it easier to switch between local storage and API later
  */
-export class FileService {
+class FileServiceClass {
   private documents: Document[] = [];
 
   /**
@@ -89,6 +90,77 @@ export class FileService {
   }
 
   /**
+   * Process a content:// URI into a data URI for viewing
+   */
+  static async createDataUri(uri: string, mimeType: string): Promise<string> {
+    try {
+      console.log(`Converting ${uri} to data URI`);
+      
+      // For content:// or file:// URIs
+      if (uri.startsWith('content://') || uri.startsWith('file://')) {
+        try {
+          // Get file stats to check size
+          const path = uri.startsWith('file://') && Platform.OS === 'android' 
+            ? uri.replace('file://', '') 
+            : uri;
+          
+          let fileSize = 0;
+          try {
+            // For content URIs, this might fail but we'll still try to read the file
+            const stats = await RNFS.stat(path);
+            fileSize = stats.size;
+            console.log(`File size: ${fileSize} bytes`);
+            
+            // Check if file is too large (>50MB) for direct data URI conversion
+            const MAX_SAFE_SIZE = 50 * 1024 * 1024; // 50MB limit for data URIs
+            if (fileSize > MAX_SAFE_SIZE) {
+              console.log('File too large for data URI, creating temp file copy instead');
+              
+              // For large files, create a copy in cache instead of data URI
+              const timestamp = Date.now();
+              const extension = path.split('.').pop() || (mimeType.includes('pdf') ? 'pdf' : 'jpg');
+              const fileName = `large_file_${timestamp}.${extension}`;
+              const destPath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+              
+              console.log(`Copying large file to: ${destPath}`);
+              await RNFS.copyFile(path, destPath);
+              
+              // Verify the copy worked
+              const fileExists = await RNFS.exists(destPath);
+              if (!fileExists) {
+                throw new Error('Failed to create temp file copy');
+              }
+              
+              // Return file:// URI instead of data URI
+              return `file://${destPath}`;
+            }
+          } catch (statError) {
+            console.log('Could not get file stats, will attempt to read anyway:', statError);
+          }
+          
+          // For reasonable size files, read as base64
+          console.log('Reading file to base64');
+          const base64Data = await RNFS.readFile(path, 'base64');
+          
+          if (!base64Data || base64Data.length === 0) {
+            throw new Error('No data read from file');
+          }
+          
+          return `data:${mimeType};base64,${base64Data}`;
+        } catch (error) {
+          console.error('Error reading URI:', error);
+          throw error;
+        }
+      }
+      
+      throw new Error(`Unsupported URI scheme: ${uri}`);
+    } catch (error) {
+      console.error('Failed to create data URI:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Import a document using the Storage Access Framework and convert to file URI
    * Creates a local copy in the app's cache directory for reliable access
    */
@@ -115,31 +187,25 @@ export class FileService {
       let fileUri = result.uri;
       const originalUri = result.uri;
       
-      // For content:// URIs, create a local copy manually if necessary
+      // For content:// URIs
+      let dataUri: string | undefined;
       if (result.uri.startsWith('content://')) {
-        // First check if we already have a file copy from the picker
-        const response = result as any; // Use any to bypass TypeScript checking
-        if (response.fileCopyUri) {
-          fileUri = response.fileCopyUri;
-          console.log('Using copied file URI from picker:', fileUri);
-        } else {
-          try {
-            const timestamp = Date.now();
-            const fileName = result.name || `document_${timestamp}.${fileExtension || 'pdf'}`;
-            const destPath = `${RNFS.CachesDirectoryPath}/${fileName}`;
-            
-            // On Android, use copyFile
-            if (Platform.OS === 'android') {
-              console.log('Copying content URI to file URI:', result.uri, ' -> ', destPath);
-              await RNFS.copyFile(result.uri, destPath);
-              fileUri = `file://${destPath}`;
-              console.log('Copied to file URI:', fileUri);
-            }
-          } catch (copyError) {
-            console.warn('Failed to copy file, falling back to content URI:', copyError);
-            // If copy fails, use original URI as fallback
-            fileUri = result.uri;
+        try {
+          // First check if we already have a file copy from the picker
+          const response = result as any; // Use any to bypass TypeScript checking
+          if (response.fileCopyUri) {
+            fileUri = response.fileCopyUri;
+            console.log('Using copied file URI from picker:', fileUri);
           }
+          
+          // Create a data URI for immediate viewing regardless of if we have a file copy
+          const mimeType = documentType === 'pdf' ? 'application/pdf' : `image/${fileExtension}`;
+          dataUri = await FileServiceClass.createDataUri(result.uri, mimeType);
+          console.log('Created data URI for direct viewing');
+        } catch (copyError) {
+          console.warn('Failed during content URI processing:', copyError);
+          // Still use original URI as fallback
+          fileUri = result.uri;
         }
       }
 
@@ -150,6 +216,7 @@ export class FileService {
         type: documentType,
         uri: fileUri,
         originalUri: originalUri !== fileUri ? originalUri : undefined,
+        dataUri,
         date: new Date(),
       };
 
@@ -184,7 +251,7 @@ export class FileService {
             uri: `mock-captured-${Date.now()}`
           };
           
-          FileService.addDocument(newDoc)
+          FileServiceClass.addDocument(newDoc)
             .then(document => resolve(document))
             .catch(() => resolve(null));
         } catch (error) {
@@ -210,7 +277,8 @@ export class FileService {
   }
 }
 
-// Singleton instance
-export const documentService = new FileService();
-export type { Document };
-export { FileService }; 
+// Export the class and create a singleton instance
+export const FileService = FileServiceClass;
+export const documentService = new FileServiceClass();
+// Export Document type (without redeclaring it)
+// export type { Document }; 

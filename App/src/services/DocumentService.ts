@@ -1,4 +1,6 @@
 import { Document } from './FileService';
+import RNFS from 'react-native-fs';
+import { Platform } from 'react-native';
 
 /**
  * Service to handle document content and AI operations
@@ -24,6 +26,66 @@ export class DocumentService {
         }
       }, 300);
     });
+  }
+
+  /**
+   * Process a document URI to ensure it can be viewed
+   * For content:// URIs, this will create a data URI
+   */
+  static async prepareDocumentForViewing(document: Document): Promise<string> {
+    try {
+      console.log('Preparing document for viewing:', document.uri);
+      
+      // If the document has a data URI already, return it
+      if (document.uri.startsWith('data:')) {
+        return document.uri;
+      }
+      
+      // For content:// or file:// URIs
+      if (document.uri.startsWith('content://') || document.uri.startsWith('file://')) {
+        console.log('Converting local document to data URI');
+        
+        // For PDFs, convert to data URI
+        if (document.type === 'pdf') {
+          try {
+            // For file:// URIs on Android, remove the prefix
+            const path = document.uri.startsWith('file://') && Platform.OS === 'android' 
+              ? document.uri.replace('file://', '') 
+              : document.uri;
+            
+            // Read file as base64
+            const base64Data = await RNFS.readFile(path, 'base64');
+            return `data:application/pdf;base64,${base64Data}`;
+          } catch (error) {
+            console.error('Failed to convert document to data URI:', error);
+            throw new Error(`Cannot read document: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+        
+        // For images, convert to data URI if needed
+        if (document.type === 'image') {
+          try {
+            const path = document.uri.startsWith('file://') && Platform.OS === 'android' 
+              ? document.uri.replace('file://', '') 
+              : document.uri;
+            
+            // Read file as base64
+            const base64Data = await RNFS.readFile(path, 'base64');
+            return `data:image/${document.uri.split('.').pop()};base64,${base64Data}`;
+          } catch (error) {
+            console.error('Failed to convert image to data URI:', error);
+            // For images, we can fall back to the original URI
+            return document.uri;
+          }
+        }
+      }
+      
+      // For URLs, return as-is
+      return document.uri;
+    } catch (error) {
+      console.error('Error preparing document for viewing:', error);
+      throw error;
+    }
   }
 
   /**
