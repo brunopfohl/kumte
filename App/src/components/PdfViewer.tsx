@@ -4,8 +4,8 @@ import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 
 // Asset paths
-const HTML_PATH = Platform.OS === 'android' 
-  ? 'file:///android_asset/pdfViewer.html' 
+const HTML_PATH = Platform.OS === 'android'
+  ? 'file:///android_asset/pdfViewer.html'
   : `file://${RNFS.MainBundlePath}/pdfViewer.html`;
 
 interface PdfViewerProps {
@@ -27,11 +27,11 @@ interface WebViewMessage {
  * PDF Viewer component based on PDF.js
  * Supports file:// URIs, content:// URIs, http:// URLs, and data:application/pdf URIs
  */
-const PdfViewer: React.FC<PdfViewerProps> = ({ 
-  uri, 
-  onTextSelected, 
-  onLoaded, 
-  onError 
+const PdfViewer: React.FC<PdfViewerProps> = ({
+  uri,
+  onTextSelected,
+  onLoaded,
+  onError
 }) => {
   const webViewRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
@@ -83,7 +83,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
       if (data.type === 'viewerReady' && uri.startsWith('data:application/pdf;base64,')) {
         console.log('Viewer is ready, injecting full PDF viewer HTML');
-        
+
         // Inject the full PDF viewer HTML with our data URI
         const htmlWithData = `
           document.open();
@@ -326,7 +326,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
           document.close();
           true;
         `;
-        
+
         setTimeout(() => {
           webViewRef.current?.injectJavaScript(htmlWithData);
         }, 500);
@@ -375,7 +375,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     // For data URIs - we use a message-based approach
     if (uri.startsWith('data:application/pdf;base64,')) {
       console.log('Using HTML-only source for data URI');
-      return { 
+      return {
         html: `
         <!DOCTYPE html>
         <html>
@@ -406,27 +406,27 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         baseUrl: 'about:blank'
       };
     }
-    
+
     // For file:// URIs and http:// URLs - we pass through query param
     if (uri.startsWith('file://') || uri.startsWith('http')) {
-      return { 
+      return {
         uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}`,
-        headers: {'Cache-Control': 'no-cache'}
+        headers: { 'Cache-Control': 'no-cache' }
       };
     }
-    
+
     // For content:// URIs (we pass the URI to the html)
     if (uri.startsWith('content://')) {
-      return { 
+      return {
         uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}`,
-        headers: {'Cache-Control': 'no-cache'}
+        headers: { 'Cache-Control': 'no-cache' }
       };
     }
-    
+
     // Default fallback
-    return { 
+    return {
       uri: HTML_PATH,
-      headers: {'Cache-Control': 'no-cache'}
+      headers: { 'Cache-Control': 'no-cache' }
     };
   };
 
@@ -461,7 +461,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   // Render WebView with appropriate settings based on URI type
   const renderWebView = () => {
     const source = getWebViewSource();
-    
+
     // Special handling for file:// URIs
     if (uri.startsWith('file://')) {
       return (
@@ -476,7 +476,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         />
       );
     }
-    
+
     // For data URIs
     if (uri.startsWith('data:application/pdf;base64,')) {
       return (
@@ -492,7 +492,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
         />
       );
     }
-    
+
     // Default for http/https/content URIs
     return (
       <WebView
