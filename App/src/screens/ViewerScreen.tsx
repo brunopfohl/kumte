@@ -603,19 +603,68 @@ export const ViewerScreen = () => {
     );
   };
 
+  const getDocumentTitle = () => {
+    // Extract filename from the URI
+    if (uri) {
+      // For file:// URIs, extract the filename
+      if (uri.startsWith('file://')) {
+        const pathParts = uri.split('/');
+        const filename = pathParts[pathParts.length - 1];
+        return decodeURIComponent(filename);
+      }
+      
+      // For content:// URIs, use a generic name
+      if (uri.startsWith('content://')) {
+        return 'Document';
+      }
+      
+      // For data URIs, use a generic name
+      if (uri.startsWith('data:')) {
+        return 'PDF Document';
+      }
+      
+      // For remote URLs, extract filename if possible
+      if (uri.startsWith('http')) {
+        try {
+          const url = new URL(uri);
+          const pathParts = url.pathname.split('/');
+          const filename = pathParts[pathParts.length - 1];
+          return filename || 'Document';
+        } catch (e) {
+          return 'Document';
+        }
+      }
+    }
+    
+    return type === 'pdf' ? 'PDF Document' : 'Image';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>
-          {type === 'pdf' ? 'PDF Document' : 'Image'}
-          {type === 'pdf' && <Text style={styles.subtitle}> (Text selection enabled)</Text>}
-        </Text>
+        
+        <TouchableOpacity 
+          style={styles.titleContainer}
+          onPress={() => {
+            // Show full title in alert if it's truncated
+            const fullTitle = getDocumentTitle();
+            if (fullTitle.length > 30) {
+              Alert.alert('Document Title', fullTitle);
+            }
+          }}
+        >
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            {getDocumentTitle()}
+          </Text>
+        </TouchableOpacity>
+        
         <View style={styles.headerRight} />
       </View>
 
@@ -669,28 +718,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingTop: 30,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
     backgroundColor: '#fff',
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
   },
   backButtonText: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#333',
+  },
+  titleContainer: {
+    flex: 1,
+    marginHorizontal: 8,
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
-  },
-  subtitle: {
-    fontSize: 12,
-    fontWeight: 'normal',
-    fontStyle: 'italic',
-    color: '#666',
+    fontWeight: '600',
+    color: '#333',
   },
   headerRight: {
     width: 40,

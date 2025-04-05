@@ -11,13 +11,13 @@ try {
   // Fallback to a simple component if the library is not available
   Icon = ({ name, size, color }: { name: string, size: number, color: string }) => (
     <Text style={{ color, fontSize: size }}>
-      {name === 'navigate-before' ? '◀' : 
-       name === 'navigate-next' ? '▶' : 
-       name === 'psychology' ? '🧠' : 
-       name === 'star' ? '⭐' : 
-       name === 'auto_awesome' ? '✨' :
-       name === 'light_mode' ? '💡' :
-       name === 'close' ? '×' : '●'}
+      {name === 'navigate-before' ? '◀' :
+        name === 'navigate-next' ? '▶' :
+          name === 'psychology' ? '🧠' :
+            name === 'star' ? '⭐' :
+              name === 'auto_awesome' ? '✨' :
+                name === 'light_mode' ? '💡' :
+                  name === 'close' ? '×' : '●'}
     </Text>
   );
 }
@@ -80,10 +80,10 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
     if (onAIExplain && selectedText) {
       // Change button state
       setAiActivated(!aiActivated);
-      
+
       // Call the parent handler
       onAIExplain(selectedText);
-      
+
       // Toggle AI panel visibility
       setShowAIPanel(!showAIPanel);
       Animated.parallel([
@@ -138,15 +138,15 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
         </View>
 
         {selectedText ? (
-          <TouchableOpacity 
-            style={[styles.aiIconButton, aiActivated && styles.aiIconButtonActive]} 
-            onPress={handleAIExplain} 
+          <TouchableOpacity
+            style={[styles.aiIconButton, aiActivated && styles.aiIconButtonActive]}
+            onPress={handleAIExplain}
             activeOpacity={0.8}
           >
-            <Icon 
-              name="light_mode" 
-              size={24} 
-              color={aiActivated ? "#fff" : "#fff"} 
+            <Icon
+              name="light_mode"
+              size={24}
+              color={aiActivated ? "#fff" : "#fff"}
             />
           </TouchableOpacity>
         ) : (
@@ -155,10 +155,10 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
       </View>
 
       {showAIPanel && (
-        <Animated.View 
+        <Animated.View
           style={[
-            styles.aiPanel, 
-            { 
+            styles.aiPanel,
+            {
               opacity: aiPanelOpacity,
               maxHeight: aiPanelHeight.interpolate({
                 inputRange: [0, 1],
@@ -174,7 +174,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
                 {selectedText ? selectedText.substring(0, 120) + (selectedText.length > 120 ? '...' : '') : ''}
               </Text>
             </View>
-            
+
             <View style={styles.aiResponseContainer}>
               <View style={styles.aiResponseHeader}>
                 <Text style={styles.aiResponseTitle}>AI INSIGHTS</Text>
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   aiIconButton: {
-    width: 48, 
+    width: 48,
     height: 48,
     borderRadius: 24,
     backgroundColor: '#ffb6c1',

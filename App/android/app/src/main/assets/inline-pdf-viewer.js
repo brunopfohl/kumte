@@ -21,7 +21,6 @@ window.pdfViewerGoToPreviousPage = function() {
 };
 
 // Get UI elements
-const messageContainer = document.getElementById('messageContainer');
 const viewerContainer = document.getElementById('viewerContainer');
 const pdfContainer = document.getElementById('pdfContainer');
 const controls = document.getElementById('controls');
@@ -39,8 +38,6 @@ let pageElements = [];
 
 // Process the PDF data
 window.processPdfData = function(dataUri) {
-    messageContainer.innerHTML = '<div class="loadingMessage">Loading PDF...</div>';
-    
     try {
         if (!dataUri.startsWith('data:application/pdf;base64,')) {
             throw new Error('Invalid PDF data URI');
@@ -76,9 +73,6 @@ window.processPdfData = function(dataUri) {
                 const horizontalPadding = 40;
                 currentScale = (viewerWidth - horizontalPadding) / viewport.width;
                 
-                // Clear loading indicator
-                messageContainer.innerHTML = '';
-                
                 // Load all pages at once
                 loadAllPages();
                 
@@ -103,7 +97,6 @@ window.loadPdfFromDataUri = window.processPdfData;
 
 // Show error message
 function showError(message) {
-    messageContainer.innerHTML = '<div class="errorMessage">Error: ' + message + '</div>';
     if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ 
             type: 'error', 
