@@ -2,99 +2,98 @@
 <html>
 <head>
   <title>Inline PDF Viewer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <link rel="stylesheet" href="file:///android_asset/inline-pdf-viewer.css">
-  <script src="file:///android_asset/webview-debug.js"></script>
-  <script>
-    // Define global navigation functions immediately
-    window.pdfViewerGoToPage = function(pageNumber) {
-      console.log('Global pdfViewerGoToPage called with page:', pageNumber);
-      if (typeof goToPage === 'function') {
-        goToPage(pageNumber);
-      } else {
-        console.error('PDF viewer goToPage function not initialized yet');
-      }
-    };
-    
-    window.pdfViewerGoToNextPage = function() {
-      console.log('Global pdfViewerGoToNextPage called');
-      if (typeof goToNextPage === 'function') {
-        goToNextPage();
-      } else {
-        console.error('PDF viewer goToNextPage function not initialized yet');
-      }
-    };
-    
-    window.pdfViewerGoToPreviousPage = function() {
-      console.log('Global pdfViewerGoToPreviousPage called');
-      if (typeof goToPreviousPage === 'function') {
-        goToPreviousPage();
-      } else {
-        console.error('PDF viewer goToPreviousPage function not initialized yet');
-      }
-    };
-    
-    // Function to process PDF data
-    window.processPdfData = function(dataUri) {
-      console.log('processPdfData called with data URI');
-      try {
-        if (!dataUri.startsWith('data:application/pdf;base64,')) {
-          throw new Error('Invalid PDF data URI');
-        }
-        
-        // Extract base64 data and create array buffer
-        const base64Data = dataUri.substring(dataUri.indexOf(',') + 1);
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        
-        // Load the PDF
-        pdfjsLib.getDocument({ data: bytes }).promise.then(function(pdf) {
-          console.log('PDF loaded successfully with', pdf.numPages, 'pages');
-          window.pdfDoc = pdf;
-          window.totalPages = pdf.numPages;
-          
-          // Notify React Native that the PDF is loaded
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'loaded',
-              pageCount: window.totalPages,
-              currentPage: 1
-            }));
-          }
-          
-          // Clear any existing content and render the first page
-          const container = document.getElementById('pdfContainer');
-          if (container) {
-            container.innerHTML = '';
-          }
-          window.renderPage(1);
-        }).catch(function(error) {
-          console.error('Error loading PDF:', error);
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'error',
-              message: 'Error loading PDF: ' + error.message
-            }));
-          }
-        });
-      } catch (error) {
-        console.error('Error processing PDF data:', error);
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'error',
-            message: 'Error processing PDF data: ' + error.message
-          }));
-        }
-      }
-    };
-    
-    // Alias for compatibility
-    window.loadPdfFromDataUri = window.processPdfData;
-  </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    #viewerContainer {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: #f0f0f0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 60px;
+    }
+    #pdfContainer {
+      padding: 10px;
+    }
+    .page {
+      background-color: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      margin-bottom: 15px;
+      position: relative;
+    }
+    .textLayer {
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      opacity: 0.2;
+      line-height: 1.0;
+    }
+    .textLayer > span {
+      color: transparent;
+      position: absolute;
+      white-space: pre;
+      cursor: text;
+      transform-origin: 0% 0%;
+    }
+    #controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
+      background-color: #f8f8f8;
+      border-top: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px;
+      z-index: 100;
+    }
+    button {
+      margin: 0 5px;
+      padding: 8px 15px;
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
+    button:disabled {
+      opacity: 0.5;
+    }
+    input {
+      width: 50px;
+      text-align: center;
+      margin: 0 5px;
+    }
+    #messageContainer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(255,255,255,0.9);
+      padding: 20px;
+      text-align: center;
+      z-index: 100;
+    }
+    .loadingMessage {
+      font-size: 18px;
+    }
+    .errorMessage {
+      color: red;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
   <div id="messageContainer">
@@ -110,8 +109,26 @@
     <button id="nextPage" disabled>Next</button>
   </div>
   
-  <!-- Canvas element for rendering -->
-  <canvas id="pdf-canvas"></canvas>
+  <script>
+    // Define global navigation functions immediately
+    window.pdfViewerGoToPage = function(pageNumber) {
+      if (window.scrollToPage) {
+        window.scrollToPage(pageNumber);
+      }
+    };
+    
+    window.pdfViewerGoToNextPage = function() {
+      if (window.scrollToNextPage) {
+        window.scrollToNextPage();
+      }
+    };
+    
+    window.pdfViewerGoToPreviousPage = function() {
+      if (window.scrollToPreviousPage) {
+        window.scrollToPreviousPage();
+      }
+    };
+  </script>
   
   <script src="file:///android_asset/inline-pdf-viewer.js"></script>
 </body>
