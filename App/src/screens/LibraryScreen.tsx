@@ -1,14 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, ActivityIndicator, Alert, StatusBar } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
+  SafeAreaView, 
+  ScrollView, 
+  ActivityIndicator, 
+  Alert, 
+  StatusBar,
+  TextInput,
+  FlatList,
+  Dimensions
+} from 'react-native';
 import { LibraryScreenProps } from '../types';
 import { FileService, Document, documentService } from '../services/FileService';
 import Icon from '../components/icons';
 import PdfThumbnail from '../components/PdfThumbnail';
 
+const { width } = Dimensions.get('window');
+const ITEM_WIDTH = (width - 48) / 2; // 2 columns with padding
+
+type FilterTab = 'all' | 'recent';
+
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
   useEffect(() => {
     loadDocuments();
@@ -102,49 +122,160 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f0f4ff" />
-      
-      <View style={styles.header}>
-        <Text style={styles.title}>IntelliRead</Text>
-        <Text style={styles.subtitle}>Your AI Document Companion</Text>
+  const filteredDocuments = documents.filter(doc => {
+    // Apply search filter
+    if (searchQuery) {
+      return doc.title.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+    
+    // Apply tab filter
+    if (activeFilter === 'recent') {
+      // Consider documents from the last 7 days as recent
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return doc.date > sevenDaysAgo;
+    }
+    
+    return true; // 'all' filter
+  });
+
+  const renderDocumentItem = ({ item: doc }: { item: Document }) => (
+    <TouchableOpacity 
+      style={styles.documentCard}
+      onPress={() => navigation.navigate('Viewer', {
+        uri: doc.uri,
+        type: doc.type
+      })}
+    >
+      <View style={styles.documentIconContainer}>
+        {doc.type === 'pdf' ? (
+          <PdfThumbnail 
+            document={doc} 
+            width={60} 
+            height={80} 
+          />
+        ) : (
+          <View style={styles.documentIcon}>
+            <Icon 
+              name={getIconForDocument(doc.type)} 
+              size={30} 
+              color="#3498db" 
+            />
+          </View>
+        )}
       </View>
       
+      <View style={styles.documentInfo}>
+        <Text style={styles.documentTitle} numberOfLines={2}>{doc.title}</Text>
+        <View style={styles.documentMeta}>
+          <Icon name="clock" size={12} color="#94a3b8" style={styles.metaIcon} />
+          <Text style={styles.documentDate}>
+            {doc.date instanceof Date ? 
+              doc.date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              }) : 
+              String(doc.date)
+            }
+          </Text>
+          <Text style={styles.metaSeparator}>•</Text>
+          <Text style={styles.documentType}>{doc.type.toUpperCase()}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#3498db" />
+      
+      {/* Header with gradient-like effect */}
+      <View style={styles.headerContainer}>
+        {/* Base gradient layer */}
+        <View style={styles.headerGradient} />
+        {/* Diagonal gradient overlay */}
+        <View style={styles.diagonalGradient} />
+        {/* Bottom accent */}
+        <View style={styles.bottomAccent} />
+        {/* Top highlight */}
+        <View style={styles.topHighlight} />
+        
+        {/* Content layer */}
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>IntelliRead</Text>
+          <View style={styles.searchContainer}>
+            <Icon name="search" size={18} color="rgba(255, 255, 255, 0.8)" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search documents..."
+              placeholderTextColor="rgba(255, 255, 255, 0.7)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        </View>
+      </View>
+      
+      {/* Action Buttons */}
       <View style={styles.actionContainer}>
         <TouchableOpacity 
-          style={[styles.actionButton, styles.importButton, importing && styles.buttonDisabled]}
+          style={styles.actionButton}
           onPress={handleImportDocument}
           disabled={importing}
         >
-          {importing ? (
-            <ActivityIndicator color="#6c5ce7" size="small" />
-          ) : (
-            <>
-              <Icon name="download" size={20} color="#6c5ce7" style={styles.buttonIcon} />
-              <Text style={[styles.actionButtonText, styles.importButtonText]}>Import</Text>
-            </>
-          )}
+          <View style={styles.actionIconContainer}>
+            <Icon name="download" size={24} color="#3498db" />
+          </View>
+          <Text style={styles.actionButtonText}>Import Document</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.actionButton, styles.cameraButton]}
+          style={styles.actionButton}
           onPress={handleCaptureDocument}
         >
-          <Icon name="camera" size={20} color="#00b894" style={styles.buttonIcon} />
-          <Text style={[styles.actionButtonText, styles.cameraButtonText]}>Capture</Text>
+          <View style={styles.actionIconContainer}>
+            <Icon name="camera" size={24} color="#3498db" />
+          </View>
+          <Text style={styles.actionButtonText}>Scan</Text>
         </TouchableOpacity>
       </View>
       
-      <View style={styles.recentContainer}>
-        <Text style={styles.sectionTitle}>My Documents</Text>
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity 
+          style={[
+            styles.filterTab, 
+            activeFilter === 'all' && styles.filterTabActive
+          ]}
+          onPress={() => setActiveFilter('all')}
+        >
+          <Text style={[
+            styles.filterTabText,
+            activeFilter === 'all' && styles.filterTabTextActive
+          ]}>All Files</Text>
+        </TouchableOpacity>
         
+        <TouchableOpacity 
+          style={[
+            styles.filterTab, 
+            activeFilter === 'recent' && styles.filterTabActive
+          ]}
+          onPress={() => setActiveFilter('recent')}
+        >
+          <Text style={[
+            styles.filterTabText,
+            activeFilter === 'recent' && styles.filterTabTextActive
+          ]}>Recent</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.documentListContainer}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator color="#6c5ce7" size="large" />
+            <ActivityIndicator color="#3498db" size="large" />
             <Text style={styles.loadingText}>Loading your documents...</Text>
           </View>
-        ) : documents.length === 0 ? (
+        ) : filteredDocuments.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconWrapper}>
               <Icon name="file" size={48} color="#a8b3cf" style={styles.emptyIcon} />
@@ -153,57 +284,15 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
             <Text style={styles.emptySubText}>Import or capture documents to get started</Text>
           </View>
         ) : (
-          <ScrollView 
-            style={styles.documentList}
+          <FlatList
+            data={filteredDocuments}
+            renderItem={renderDocumentItem}
+            keyExtractor={(doc, index) => `doc-${doc.id}-${index}`}
+            numColumns={2}
+            contentContainerStyle={styles.gridContainer}
             showsVerticalScrollIndicator={false}
-          >
-            {documents.map((doc, index) => (
-              <TouchableOpacity 
-                key={`doc-${doc.id}-${index}`}
-                style={styles.documentItem}
-                onPress={() => navigation.navigate('Viewer', {
-                  uri: doc.uri,
-                  type: doc.type
-                })}
-              >
-                {doc.type === 'pdf' ? (
-                  <View style={styles.thumbnailContainer}>
-                    <PdfThumbnail 
-                      document={doc} 
-                      width={60} 
-                      height={80} 
-                    />
-                  </View>
-                ) : (
-                  <View style={[
-                    styles.documentIconContainer,
-                    styles.imageIconContainer
-                  ]}>
-                    <Icon 
-                      name={getIconForDocument(doc.type)} 
-                      size={24} 
-                      color="white" 
-                    />
-                  </View>
-                )}
-                
-                <View style={styles.documentInfo}>
-                  <Text style={styles.documentTitle}>{doc.title}</Text>
-                  <Text style={styles.documentMeta}>
-                    {doc.type.toUpperCase()} • {doc.date instanceof Date ? 
-                      doc.date.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      }) : 
-                      String(doc.date)
-                    }
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            <View style={styles.listBottom} />
-          </ScrollView>
+            columnWrapperStyle={styles.row}
+          />
         )}
       </View>
     </SafeAreaView>
@@ -213,89 +302,216 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: '#f5f7fa', // Light gray background
   },
-  header: {
-    padding: 24,
-    paddingBottom: 20,
+  headerContainer: {
+    paddingTop: 30,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  headerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#3498db', // Primary blue color
+  },
+  topHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    backgroundColor: '#ffffff',
+    opacity: 0.15,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  diagonalGradient: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#2ecc71', // Secondary color
+    opacity: 0.6,
+    transform: [{ skewY: '-20deg' }, { translateY: -120 }],
+  },
+  bottomAccent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    backgroundColor: '#2980b9', // Darker blue
+    opacity: 0.3,
+  },
+  headerContent: {
+    paddingHorizontal: 20,
+    position: 'relative',
+    zIndex: 2,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#2d3436',
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: '700',
+    color: 'white',
+    marginBottom: 16,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#6c5ce7',
-    marginTop: 4,
-    letterSpacing: 0.2,
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 30,
+    paddingHorizontal: 16,
+    height: 40,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: 'white',
+    padding: 0, // Remove default padding
+    height: 40,
   },
   actionContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    marginBottom: 20,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
+    gap: 16,
   },
   actionButton: {
     flex: 1,
-    height: 50,
+    backgroundColor: 'white',
     borderRadius: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    paddingVertical: 16,
     alignItems: 'center',
-    shadowColor: '#6c5ce7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0', // Light gray border
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
     elevation: 2,
   },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  importButton: {
-    backgroundColor: '#f3f0ff',
-    borderWidth: 1,
-    borderColor: '#e9e4ff',
-  },
-  cameraButton: {
-    backgroundColor: '#e6fff9',
-    borderWidth: 1,
-    borderColor: '#d1ffe9',
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#ebf5ff', // Light blue background
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   actionButtonText: {
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 16,
+    color: '#334155', // Dark gray text
   },
-  importButtonText: {
-    color: '#6c5ce7',
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 12,
   },
-  cameraButtonText: {
-    color: '#00b894',
-  },
-  recentContainer: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 24,
+  filterTab: {
     paddingHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingVertical: 8,
+    borderRadius: 30,
+    backgroundColor: '#f1f5f9', // Light gray background
   },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2d3436',
-    marginBottom: 20,
-    letterSpacing: -0.3,
+  filterTabActive: {
+    backgroundColor: '#3498db', // Primary blue color
+  },
+  filterTabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b', // Medium gray text
+  },
+  filterTabTextActive: {
+    color: 'white', // White text for active tab
+  },
+  documentListContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  gridContainer: {
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+  row: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  documentCard: {
+    width: ITEM_WIDTH,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0', // Light gray border
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  documentIconContainer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  documentIcon: {
+    width: 60,
+    height: 80,
+    backgroundColor: '#f1f5f9', // Light blue background
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  documentInfo: {
+    alignItems: 'center', 
+  },
+  documentTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155', // Dark gray text
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  documentMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metaIcon: {
+    marginRight: 4,
+  },
+  documentDate: {
+    fontSize: 12,
+    color: '#94a3b8', // Medium gray text
+  },
+  metaSeparator: {
+    fontSize: 12,
+    color: '#cbd5e1', // Light gray text
+    marginHorizontal: 4,
+  },
+  documentType: {
+    fontSize: 12,
+    color: '#94a3b8', // Medium gray text
   },
   loadingContainer: {
     flex: 1,
@@ -303,7 +519,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#6c5ce7',
+    color: '#3498db',
     marginTop: 16,
     fontSize: 16,
   },
@@ -317,7 +533,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#f6f8ff',
+    backgroundColor: '#f1f5f9', // Light blue background
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -328,42 +544,23 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#2d3436',
+    color: '#334155', // Dark gray text
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 15,
-    color: '#a8b3cf',
+    color: '#94a3b8', // Medium gray text
     textAlign: 'center',
     lineHeight: 22,
   },
-  documentList: {
-    flex: 1,
-  },
-  documentItem: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    backgroundColor: '#f8faff',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#eef2ff',
-  },
-  documentIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
+  buttonDisabled: {
+    opacity: 0.7,
   },
   thumbnailContainer: {
     width: 60,
     height: 80,
     borderRadius: 8,
     overflow: 'hidden',
-    marginRight: 16,
     backgroundColor: '#f8faff',
     borderWidth: 1,
     borderColor: '#eef2ff',
@@ -379,21 +576,4 @@ const styles = StyleSheet.create({
   imageIconContainer: {
     backgroundColor: '#74b9ff',
   },
-  documentInfo: {
-    flex: 1,
-  },
-  documentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2d3436',
-    marginBottom: 4,
-  },
-  documentMeta: {
-    fontSize: 13,
-    color: '#a8b3cf',
-    letterSpacing: 0.2,
-  },
-  listBottom: {
-    height: 20,
-  }
 }); 
