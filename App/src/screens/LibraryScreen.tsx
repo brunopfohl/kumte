@@ -147,18 +147,18 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         type: doc.type
       })}
     >
-      <View style={styles.documentIconContainer}>
+      <View style={styles.documentPreviewContainer}>
         {doc.type === 'pdf' ? (
           <PdfThumbnail 
             document={doc} 
-            width={60} 
-            height={80} 
+            width={ITEM_WIDTH}  // Use full width since card has no padding now
+            height={180} 
           />
         ) : (
           <View style={styles.documentIcon}>
             <Icon 
               name={getIconForDocument(doc.type)} 
-              size={30} 
+              size={40} 
               color="#3498db" 
             />
           </View>
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     width: ITEM_WIDTH,
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 12,
+    padding: 0,
     borderWidth: 1,
     borderColor: '#e2e8f0', // Light gray border
     shadowColor: '#000',
@@ -467,23 +467,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    overflow: 'hidden',
   },
-  documentIconContainer: {
-    paddingVertical: 16,
+  documentPreviewContainer: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
   documentIcon: {
-    width: 60,
-    height: 80,
-    backgroundColor: '#f1f5f9', // Light blue background
-    borderRadius: 8,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   documentInfo: {
-    alignItems: 'center', 
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'white',
   },
   documentTitle: {
     fontSize: 14,
