@@ -2,6 +2,9 @@ import { Document } from './FileService';
 import RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
 
+// Cache for document URIs to avoid repeated processing
+const documentUriCache: Record<string, string> = {};
+
 /**
  * Service to handle document content and AI operations
  */
@@ -36,8 +39,16 @@ export class DocumentService {
     try {
       console.log('Preparing document for viewing:', document.uri);
       
-      // If the document has a data URI already, return it
+      // Check if we have this document in the cache
+      const cacheKey = `${document.id}-${document.uri}`;
+      if (documentUriCache[cacheKey]) {
+        console.log('Using cached URI for document:', document.id);
+        return documentUriCache[cacheKey];
+      }
+      
+      // If the document has a data URI already, cache and return it
       if (document.uri.startsWith('data:')) {
+        documentUriCache[cacheKey] = document.uri;
         return document.uri;
       }
       
@@ -55,7 +66,12 @@ export class DocumentService {
             
             // Read file as base64
             const base64Data = await RNFS.readFile(path, 'base64');
-            return `data:application/pdf;base64,${base64Data}`;
+            const dataUri = `data:application/pdf;base64,${base64Data}`;
+            
+            // Cache the result
+            documentUriCache[cacheKey] = dataUri;
+            
+            return dataUri;
           } catch (error) {
             console.error('Failed to convert document to data URI:', error);
             throw new Error(`Cannot read document: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -71,16 +87,23 @@ export class DocumentService {
             
             // Read file as base64
             const base64Data = await RNFS.readFile(path, 'base64');
-            return `data:image/${document.uri.split('.').pop()};base64,${base64Data}`;
+            const dataUri = `data:image/${document.uri.split('.').pop()};base64,${base64Data}`;
+            
+            // Cache the result
+            documentUriCache[cacheKey] = dataUri;
+            
+            return dataUri;
           } catch (error) {
             console.error('Failed to convert image to data URI:', error);
             // For images, we can fall back to the original URI
+            documentUriCache[cacheKey] = document.uri;
             return document.uri;
           }
         }
       }
       
-      // For URLs, return as-is
+      // For URLs, return as-is but still cache
+      documentUriCache[cacheKey] = document.uri;
       return document.uri;
     } catch (error) {
       console.error('Error preparing document for viewing:', error);

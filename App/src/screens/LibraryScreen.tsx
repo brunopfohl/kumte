@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Act
 import { LibraryScreenProps } from '../types';
 import { FileService, Document, documentService } from '../services/FileService';
 import Icon from '../components/icons';
+import PdfThumbnail from '../components/PdfThumbnail';
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -165,16 +166,26 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
                   type: doc.type
                 })}
               >
-                <View style={[
-                  styles.documentIconContainer,
-                  doc.type === 'pdf' ? styles.pdfIconContainer : styles.imageIconContainer
-                ]}>
-                  <Icon 
-                    name={getIconForDocument(doc.type)} 
-                    size={24} 
-                    color="white" 
-                  />
-                </View>
+                {doc.type === 'pdf' ? (
+                  <View style={styles.thumbnailContainer}>
+                    <PdfThumbnail 
+                      document={doc} 
+                      width={60} 
+                      height={80} 
+                    />
+                  </View>
+                ) : (
+                  <View style={[
+                    styles.documentIconContainer,
+                    styles.imageIconContainer
+                  ]}>
+                    <Icon 
+                      name={getIconForDocument(doc.type)} 
+                      size={24} 
+                      color="white" 
+                    />
+                  </View>
+                )}
                 
                 <View style={styles.documentInfo}>
                   <Text style={styles.documentTitle}>{doc.title}</Text>
@@ -346,6 +357,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+  },
+  thumbnailContainer: {
+    width: 60,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginRight: 16,
+    backgroundColor: '#f8faff',
+    borderWidth: 1,
+    borderColor: '#eef2ff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   pdfIconContainer: {
     backgroundColor: '#ff7675',
