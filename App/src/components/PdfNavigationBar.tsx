@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, TextInput } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -74,6 +74,10 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   selectedText,
   style
 }) => {
+  const [chatVisible, setChatVisible] = useState(false);
+  const [inputText, setInputText] = useState('');
+  const chatAnimValue = useRef(new Animated.Value(0)).current;
+
   const handlePreviousPage = () => {
     viewerRef.current?.goToPreviousPage();
   };
@@ -83,8 +87,21 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   };
 
   const handleAIExplain = () => {
-    if (onAIExplain && selectedText) {
-      onAIExplain(selectedText);
+    if (selectedText) {
+      // Toggle chat window
+      setChatVisible(!chatVisible);
+      
+      // Animate chat window
+      Animated.timing(chatAnimValue, {
+        toValue: chatVisible ? 0 : 1,
+        duration: 300,
+        useNativeDriver: false
+      }).start();
+      
+      // Notify parent component
+      if (onAIExplain) {
+        onAIExplain(selectedText);
+      }
     }
   };
 
@@ -93,8 +110,70 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   const disabledColor = "#d1d5db"; // Lighter color for disabled state
   const activeColor = "#8b5cf6"; // Purple for active analyze text
 
+  const chatTranslateY = chatAnimValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [100, 0]
+  });
+
+  const chatOpacity = chatAnimValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1]
+  });
+
   return (
     <View style={[styles.container, style]}>
+      {/* Chat Window */}
+      <Animated.View 
+        style={[
+          styles.chatWindow,
+          {
+            opacity: chatOpacity,
+            transform: [{ translateY: chatTranslateY }]
+          }
+        ]}
+      >
+        <View style={styles.chatHeader}>
+          <Text style={styles.chatTitle}>AI Analysis</Text>
+          <TouchableOpacity onPress={handleAIExplain}>
+            <Text style={styles.closeButton}>×</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.selectedTextContainer}>
+          <Text style={styles.selectedTextLabel}>SELECTED TEXT</Text>
+          <Text style={styles.selectedTextContent} numberOfLines={2}>
+            {selectedText}
+          </Text>
+        </View>
+        
+        <View style={styles.messageArea}>
+          <Text style={styles.messagePlaceholder}>
+            AI response will appear here...
+          </Text>
+        </View>
+        
+        <View style={styles.chatInputContainer}>
+          <TextInput
+            style={styles.chatInput}
+            placeholder="Ask a follow-up question..."
+            value={inputText}
+            onChangeText={setInputText}
+          />
+          <TouchableOpacity 
+            style={styles.sendButton}
+            disabled={inputText.trim().length === 0}
+          >
+            <Text style={[
+              styles.sendButtonText,
+              inputText.trim().length === 0 && styles.sendButtonDisabled
+            ]}>
+              Send
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
+      {/* Toolbar */}
       <View style={styles.toolbarContainer}>
         {/* Pagination */}
         <TouchableOpacity
@@ -134,10 +213,10 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           onPress={handleAIExplain}
           disabled={!selectedText}
         >
-          <ChatIcon color={selectedText ? activeColor : iconColor} />
+          <ChatIcon color={chatVisible ? activeColor : (selectedText ? iconColor : disabledColor)} />
           <Text style={[
             styles.buttonText,
-            { color: selectedText ? activeColor : iconColor }
+            { color: chatVisible ? activeColor : (selectedText ? iconColor : disabledColor) }
           ]}>
             Analyze Text
           </Text>
@@ -222,6 +301,103 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  // Chat window styles
+  chatWindow: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  chatTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  closeButton: {
+    fontSize: 24,
+    color: '#6b7280',
+    fontWeight: '400',
+    marginTop: -4,
+  },
+  selectedTextContainer: {
+    padding: 16,
+    backgroundColor: '#f9fafb',
+  },
+  selectedTextLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  selectedTextContent: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+  },
+  messageArea: {
+    padding: 16,
+    minHeight: 100,
+  },
+  messagePlaceholder: {
+    fontSize: 14,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+  },
+  chatInputContainer: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    padding: 12,
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: '#374151',
+  },
+  sendButton: {
+    marginLeft: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonText: {
+    color: '#8b5cf6',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  sendButtonDisabled: {
+    color: '#d1d5db',
+  }
 });
 
 export default PdfNavigationBar; 
