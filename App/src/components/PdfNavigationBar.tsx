@@ -1,26 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Platform, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
-
-// Import vector icons with fallback
-let Icon: any;
-try {
-  // Try to import MaterialIcons
-  Icon = require('react-native-vector-icons/MaterialIcons').default;
-} catch (error) {
-  // Fallback to a simple component if the library is not available
-  Icon = ({ name, size, color }: { name: string, size: number, color: string }) => (
-    <Text style={{ color, fontSize: size }}>
-      {name === 'navigate-before' ? '◀' :
-        name === 'navigate-next' ? '▶' :
-          name === 'psychology' ? '🧠' :
-            name === 'star' ? '⭐' :
-              name === 'auto_awesome' ? '✨' :
-                name === 'light_mode' ? '💡' :
-                  name === 'close' ? '×' : '●'}
-    </Text>
-  );
-}
+import Svg, { Path, Circle } from 'react-native-svg';
 
 interface PdfNavigationBarProps {
   viewerRef: React.RefObject<PdfViewerMethods | null>;
@@ -30,6 +11,56 @@ interface PdfNavigationBarProps {
   selectedText?: string;
   style?: any;
 }
+
+// Custom SVG icons matching the web version
+const ChevronLeftIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+    <Path
+      fillRule="evenodd"
+      d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
+      clipRule="evenodd"
+      fill={color}
+    />
+  </Svg>
+);
+
+const ChevronRightIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+    <Path
+      fillRule="evenodd"
+      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+      clipRule="evenodd"
+      fill={color}
+    />
+  </Svg>
+);
+
+const ZoomOutIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M0 0h24v24H0z" stroke="none" fill="none" />
+    <Circle cx={10} cy={10} r={7} />
+    <Path d="M7 10h6" />
+    <Path d="M21 21l-6-6" />
+  </Svg>
+);
+
+const ZoomInIcon = ({ color }: { color: string }) => (
+  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M0 0h24v24H0z" stroke="none" fill="none" />
+    <Circle cx={10} cy={10} r={7} />
+    <Path d="M7 10h6" />
+    <Path d="M10 7v6" />
+    <Path d="M21 21l-6-6" />
+  </Svg>
+);
+
+const ChatIcon = ({ color }: { color: string }) => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M0 0h24v24H0z" stroke="none" fill="none" />
+    <Path d="M17.802 17.292s.077 -.055 .2 -.149c1.843 -1.425 3 -3.49 3 -5.789c0 -4.286 -4.03 -7.764 -9 -7.764c-4.97 0 -9 3.478 -9 7.764c0 4.288 4.03 7.646 9 7.646c.424 0 1.12 -.028 2.088 -.084c1.262 .82 3.104 1.493 4.716 1.493c.499 0 .734 -.41 .414 -.828c-.486 -.596 -1.156 -1.551 -1.416 -2.29z" />
+    <Path d="M7.5 13.5c2.5 2.5 6.5 2.5 9 0" />
+  </Svg>
+);
 
 /**
  * A navigation bar for controlling PDF viewer
@@ -43,31 +74,6 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   selectedText,
   style
 }) => {
-  const [pageInput, setPageInput] = useState(currentPage.toString());
-  const [isEditing, setIsEditing] = useState(false);
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const aiPanelOpacity = useState(new Animated.Value(0))[0];
-  const aiPanelHeight = useState(new Animated.Value(0))[0];
-  const [aiActivated, setAiActivated] = useState(false);
-
-  // Update input field when current page changes externally
-  useEffect(() => {
-    if (!isEditing) {
-      setPageInput(currentPage.toString());
-    }
-  }, [currentPage, isEditing]);
-
-  const handleGoToPage = () => {
-    setIsEditing(false);
-    const pageNumber = parseInt(pageInput);
-    if (!isNaN(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages) {
-      viewerRef.current?.goToPage(pageNumber);
-    } else {
-      // Reset to current page if invalid input
-      setPageInput(currentPage.toString());
-    }
-  };
-
   const handlePreviousPage = () => {
     viewerRef.current?.goToPreviousPage();
   };
@@ -78,293 +84,144 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
 
   const handleAIExplain = () => {
     if (onAIExplain && selectedText) {
-      // Change button state
-      setAiActivated(!aiActivated);
-
-      // Call the parent handler
       onAIExplain(selectedText);
-
-      // Toggle AI panel visibility
-      setShowAIPanel(!showAIPanel);
-      Animated.parallel([
-        Animated.timing(aiPanelOpacity, {
-          toValue: showAIPanel ? 0 : 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(aiPanelHeight, {
-          toValue: showAIPanel ? 0 : 1,
-          duration: 300,
-          useNativeDriver: false,
-        })
-      ]).start();
     }
   };
 
+  // Define colors based on state
+  const iconColor = "#6b7280"; // Default icon color
+  const disabledColor = "#d1d5db"; // Lighter color for disabled state
+  const activeColor = "#8b5cf6"; // Purple for active analyze text
+
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.mainControlsContainer}>
-        <View style={styles.navigationContainer}>
-          <TouchableOpacity
-            style={[styles.navButton, currentPage <= 1 ? styles.disabledButton : null]}
-            onPress={handlePreviousPage}
-            disabled={currentPage <= 1}
-          >
-            <Icon name="navigate-before" size={28} color={currentPage <= 1 ? '#999' : '#333'} />
-          </TouchableOpacity>
-
-          <View style={styles.pageInfoContainer}>
-            <TextInput
-              style={styles.pageInput}
-              value={pageInput}
-              onChangeText={setPageInput}
-              keyboardType="number-pad"
-              returnKeyType="go"
-              onFocus={() => setIsEditing(true)}
-              onBlur={handleGoToPage}
-              onSubmitEditing={handleGoToPage}
-              selectTextOnFocus={true}
-            />
-            <Text style={styles.pageCount}>of {totalPages}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.navButton, currentPage >= totalPages ? styles.disabledButton : null]}
-            onPress={handleNextPage}
-            disabled={currentPage >= totalPages}
-          >
-            <Icon name="navigate-next" size={28} color={currentPage >= totalPages ? '#999' : '#333'} />
-          </TouchableOpacity>
-        </View>
-
-        {selectedText ? (
-          <TouchableOpacity
-            style={[styles.aiIconButton, aiActivated && styles.aiIconButtonActive]}
-            onPress={handleAIExplain}
-            activeOpacity={0.8}
-          >
-            <Icon
-              name="light_mode"
-              size={24}
-              color={aiActivated ? "#fff" : "#fff"}
-            />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.aiButtonPlaceholder} />
-        )}
-      </View>
-
-      {showAIPanel && (
-        <Animated.View
-          style={[
-            styles.aiPanel,
-            {
-              opacity: aiPanelOpacity,
-              maxHeight: aiPanelHeight.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 180]
-              })
-            }
-          ]}
+      <View style={styles.toolbarContainer}>
+        {/* Pagination */}
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={handlePreviousPage}
+          disabled={currentPage <= 1}
         >
-          <View style={styles.aiPanelContent}>
-            <View style={styles.selectedTextContainer}>
-              <Text numberOfLines={2} style={styles.selectedTextLabel}>SELECTED TEXT</Text>
-              <Text numberOfLines={2} style={styles.selectedTextValue}>
-                {selectedText ? selectedText.substring(0, 120) + (selectedText.length > 120 ? '...' : '') : ''}
-              </Text>
-            </View>
+          <ChevronLeftIcon color={currentPage <= 1 ? disabledColor : iconColor} />
+        </TouchableOpacity>
 
-            <View style={styles.aiResponseContainer}>
-              <View style={styles.aiResponseHeader}>
-                <Text style={styles.aiResponseTitle}>AI INSIGHTS</Text>
-                <TouchableOpacity style={styles.closeButton} onPress={handleAIExplain}>
-                  <Icon name="close" size={18} color="#888" />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.aiResponseText}>
-                This text appears to discuss an important concept. I can help you understand it better.
-              </Text>
-              <View style={styles.aiActionRow}>
-                <TouchableOpacity style={styles.aiAction}>
-                  <Text style={styles.aiActionText}>Summarize</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.aiAction}>
-                  <Text style={styles.aiActionText}>Explain</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.aiAction}>
-                  <Text style={styles.aiActionText}>Define</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-      )}
+        <Text style={styles.pageNumber}>{currentPage} / {totalPages}</Text>
+
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={handleNextPage}
+          disabled={currentPage >= totalPages}
+        >
+          <ChevronRightIcon color={currentPage >= totalPages ? disabledColor : iconColor} />
+        </TouchableOpacity>
+
+        <View style={styles.separator} />
+
+        {/* Zoom controls */}
+        <TouchableOpacity style={styles.iconButton}>
+          <ZoomOutIcon color={iconColor} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.iconButton}>
+          <ZoomInIcon color={iconColor} />
+        </TouchableOpacity>
+
+        <View style={styles.separator} />
+
+        {/* Analyze Text */}
+        <TouchableOpacity 
+          style={styles.textButton}
+          onPress={handleAIExplain}
+          disabled={!selectedText}
+        >
+          <ChatIcon color={selectedText ? activeColor : iconColor} />
+          <Text style={[
+            styles.buttonText,
+            { color: selectedText ? activeColor : iconColor }
+          ]}>
+            Analyze Text
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.97)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: 'hidden',
+    width: '100%',
+    backgroundColor: 'transparent',
+    position: 'absolute',
+    bottom: 80,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    alignItems: 'center',
+  },
+  toolbarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 9999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.12,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  mainControlsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  navigationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f7fa',
-    borderRadius: 30,
-    paddingHorizontal: 10,
-    height: 50,
-    flex: 1,
-    maxWidth: '80%',
-  },
-  navButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  pageInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  pageInput: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#6200ee',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    minWidth: 36,
-    textAlign: 'center',
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  pageCount: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '400',
-  },
-  aiIconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ffb6c1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#ffb6c1',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
       },
       android: {
         elevation: 4,
       },
     }),
   },
-  aiIconButtonActive: {
-    backgroundColor: '#ff758c',
-    transform: [{ scale: 1.05 }],
-  },
-  aiButtonPlaceholder: {
-    width: 48,
-  },
-  aiPanel: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    overflow: 'hidden',
-  },
-  aiPanelContent: {
-    padding: 20,
-  },
-  selectedTextContainer: {
-    backgroundColor: '#f8f9fb',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  selectedTextLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#999',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  selectedTextValue: {
-    fontSize: 13,
-    color: '#333',
-    lineHeight: 18,
-  },
-  aiResponseContainer: {
-    backgroundColor: '#fff',
-  },
-  aiResponseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  iconButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    borderRadius: 18,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    margin: 2,
   },
-  aiResponseTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ff758c',
-    letterSpacing: 0.5,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  aiResponseText: {
+  pageNumber: {
     fontSize: 14,
-    color: '#444',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  aiActionRow: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  aiAction: {
-    backgroundColor: '#f8f9fb',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  aiActionText: {
-    fontSize: 12,
-    color: '#555',
     fontWeight: '500',
-  }
+    color: '#6b7280',
+    paddingHorizontal: 6,
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  separator: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#d1d5db',
+    marginHorizontal: 6,
+  },
+  textButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 9999,
+    height: 36,
+    margin: 2,
+    gap: 6,
+  },
+  buttonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });
 
 export default PdfNavigationBar; 
