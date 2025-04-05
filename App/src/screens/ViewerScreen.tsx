@@ -665,7 +665,13 @@ export const ViewerScreen = () => {
           </Text>
         </TouchableOpacity>
         
-        <View style={styles.headerRight} />
+        <TouchableOpacity 
+          style={styles.headerRight}
+          onPress={toggleDebugPanel}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+        >
+          <Text style={styles.optionsButtonText}>⋮</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.contentContainer}>
@@ -698,13 +704,6 @@ export const ViewerScreen = () => {
           </ScrollView>
         </View>
       )}
-
-      <TouchableOpacity 
-        style={styles.debugButton} 
-        onPress={toggleDebugPanel}
-      >
-        <Text style={styles.debugButtonText}>🛠️</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -718,7 +717,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 30,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
@@ -744,6 +743,14 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  optionsButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
   },
   contentContainer: {
     flex: 1,
@@ -812,27 +819,6 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
     fontSize: 12,
     marginBottom: 2,
-  },
-  debugButton: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 101,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  debugButtonText: {
-    fontSize: 20,
-    color: '#fff',
   },
   permissionHelp: {
     padding: 20,
