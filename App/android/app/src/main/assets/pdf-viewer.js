@@ -1,421 +1,564 @@
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// Configure the worker source
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.js';
 
-// Elements
-const messageContainer = document.getElementById('messageContainer');
-const viewerContainer = document.getElementById('viewerContainer');
-const pdfContainer = document.getElementById('pdfContainer');
-const controls = document.getElementById('controls');
-const prevPageBtn = document.getElementById('prevPage');
-const nextPageBtn = document.getElementById('nextPage');
-const pageNumberInput = document.getElementById('pageNumber');
-const pageCountSpan = document.getElementById('pageCount');
-
-// Variables
-let pdfDoc = null;
-let currentPage = 1;
-let totalPages = 0;
-let currentScale = 1.0;
-let minScale = 0.5;  // Minimum zoom level
-let maxScale = 3.0;  // Maximum zoom level
-let initialScale = 1.0;
-
-// Touch event variables
-let touchStartTime = 0;
-let touchStartDistance = 0;
-let touchStartScale = 1;
-let touchStartX = 0;
-let touchStartY = 0;
-let lastTapTime = 0;
-
-// Add event listeners for zoom and pan
-viewerContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
-viewerContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
-viewerContainer.addEventListener('touchend', handleTouchEnd, { passive: false });
-viewerContainer.addEventListener('wheel', handleWheel, { passive: false });
-
-// Add event listener for text selection
-document.addEventListener('selectionchange', function() {
-  const selection = document.getSelection();
-  if (selection && selection.toString().trim()) {
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'textSelected',
-        selectedText: selection.toString().trim()
-      }));
+// Define global navigation functions immediately
+window.pdfViewerGoToPage = function(pageNumber) {
+    console.log('Global pdfViewerGoToPage called with pageNumber:', pageNumber);
+    if (window.goToPage) {
+        window.goToPage(pageNumber);
+    } else {
+        console.error('PDF viewer not initialized - goToPage not available');
     }
-  }
-});
+};
 
-function handleTouchStart(e) {
-  if (e.touches.length === 2) {
-    // Pinch to zoom
-    touchStartTime = Date.now();
-    touchStartDistance = Math.hypot(
-      e.touches[0].pageX - e.touches[1].pageX,
-      e.touches[0].pageY - e.touches[1].pageY
-    );
-    touchStartScale = currentScale;
-    e.preventDefault();
-  } else if (e.touches.length === 1) {
-    // Single touch for panning or double tap
-    touchStartX = e.touches[0].pageX;
-    touchStartY = e.touches[0].pageY;
-    
-    // Check for double tap
-    const now = Date.now();
-    if (now - lastTapTime < 300) {
-      // Double tap detected
-      if (currentScale > initialScale) {
-        // If zoomed in, reset to fit width
-        currentScale = initialScale;
-      } else {
-        // If at fit width, zoom in to 2x
-        currentScale = Math.min(maxScale, initialScale * 2);
-      }
-      renderAllVisiblePages();
-      e.preventDefault();
+window.pdfViewerGoToNextPage = function() {
+    console.log('Global pdfViewerGoToNextPage called');
+    if (window.goToNextPage) {
+        window.goToNextPage();
+    } else {
+        console.error('PDF viewer not initialized - goToNextPage not available');
     }
-    lastTapTime = now;
-  }
-}
+};
 
-function handleTouchMove(e) {
-  if (e.touches.length === 2) {
-    // Pinch to zoom
-    const currentDistance = Math.hypot(
-      e.touches[0].pageX - e.touches[1].pageX,
-      e.touches[0].pageY - e.touches[1].pageY
-    );
-    
-    const scaleFactor = currentDistance / touchStartDistance;
-    currentScale = Math.min(maxScale, Math.max(minScale, touchStartScale * scaleFactor));
-    
-    renderAllVisiblePages();
-    e.preventDefault();
-  }
-}
-
-function handleTouchEnd(e) {
-  // Touch end event handling
-}
-
-function handleWheel(e) {
-  if (e.ctrlKey || e.metaKey) {
-    e.preventDefault();
-    
-    // Calculate new scale with wheel delta
-    const scaleDelta = e.deltaY > 0 ? 0.9 : 1.1;
-    currentScale = Math.min(maxScale, Math.max(minScale, currentScale * scaleDelta));
-    
-    renderAllVisiblePages();
-  }
-}
-
-// Calculate the scale to fit the page width
-function calculateFitToWidthScale(page) {
-  const viewport = page.getViewport({ scale: 1.0 });
-  const viewerWidth = viewerContainer.clientWidth;
-  
-  // Account for page margin
-  const horizontalPadding = 40; // 20px on each side
-  
-  // Calculate the scale that would make the page fit the container width
-  return (viewerWidth - horizontalPadding) / viewport.width;
-}
-
-function renderAllVisiblePages() {
-  // Clear the container
-  pdfContainer.innerHTML = '';
-  
-  // Render current page with updated scale
-  renderPage(currentPage);
-}
-
-// Show an error message
-function showError(message) {
-  messageContainer.innerHTML = `<div class="errorMessage">Error: ${message}</div>`;
-  controls.style.display = 'none';
-  
-  // Send error message to React Native
-  if (window.ReactNativeWebView) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({
-      type: 'error',
-      message: message
-    }));
-  }
-}
-
-// Get PDF URL from query parameters
-function getPdfUrl() {
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const fileParam = urlParams.get('file') || '';
-    if (!fileParam) {
-      console.error('No file parameter provided in URL');
-      return '';
+window.pdfViewerGoToPreviousPage = function() {
+    console.log('Global pdfViewerGoToPreviousPage called');
+    if (window.goToPreviousPage) {
+        window.goToPreviousPage();
+    } else {
+        console.error('PDF viewer not initialized - goToPreviousPage not available');
     }
-    
-    console.log('Raw file parameter:', fileParam);
-    
-    // Make sure to decode properly
-    const decodedUri = decodeURIComponent(fileParam);
-    console.log('Decoded URI:', decodedUri);
-    
-    return decodedUri;
-  } catch (error) {
-    console.error('Error getting PDF URL from query params:', error);
-    return '';
-  }
-}
+};
 
-// For data URI handling in JavaScript messages
-function initWithDataUri(dataUri) {
-  try {
-    // Set timeout for loading - if PDF isn't loaded in 30 seconds, show error
-    const timeoutId = setTimeout(() => {
-      showError('PDF loading timed out. The file may be too large or corrupted.');
-    }, 30000);
-    
-    // Strip the data URI prefix
-    let pdfData = dataUri;
-    if (dataUri.startsWith('data:application/pdf;base64,')) {
-      pdfData = dataUri.substring(dataUri.indexOf(',')+1);
-    }
-    
+// Handle document messages from React Native (Android)
+document.addEventListener('message', function(event) {
+    console.log('Document message received in pdf-viewer.js:', event.data);
     try {
-      // Decode the base64 data and create a Uint8Array
-      const binaryData = atob(pdfData);
-      const array = new Uint8Array(binaryData.length);
-      for (let i = 0; i < binaryData.length; i++) {
-          array[i] = binaryData.charCodeAt(i);
-      }
-      
-      // Load the PDF
-      pdfjsLib.getDocument({data: array}).promise.then(function(pdf) {
-        // Clear the timeout since PDF loaded successfully
-        clearTimeout(timeoutId);
+        const message = JSON.parse(event.data);
         
-        pdfDoc = pdf;
-        totalPages = pdf.numPages;
-        
-        // Update page count
-        pageCountSpan.textContent = '/ ' + totalPages;
-        
-        // Send loaded message to React Native
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'loaded',
-            pageCount: totalPages
-          }));
+        // Handle different message types
+        if (message.type === 'command') {
+            console.log('Command received:', message.action);
+            
+            switch(message.action) {
+                case 'goToPage':
+                    if (message.pageNumber && window.goToPage) {
+                        window.goToPage(message.pageNumber);
+                    }
+                    break;
+                case 'goToNextPage':
+                    if (window.goToNextPage) {
+                        window.goToNextPage();
+                    }
+                    break;
+                case 'goToPreviousPage':
+                    if (window.goToPreviousPage) {
+                        window.goToPreviousPage();
+                    }
+                    break;
+                default:
+                    console.warn('Unknown command:', message.action);
+            }
+        } else if (message.type === 'loadDataUri') {
+            console.log('Loading PDF from data URI');
+            window.loadPdfFromDataUri(message.dataUri);
+        } else if (message.type === 'loadUrl') {
+            console.log('Loading PDF from URL');
+            window.loadPdfFromUrl(message.url);
         }
-        
-        // Calculate the initial scale for the first page
-        pdfDoc.getPage(1).then(function(page) {
-          initialScale = calculateFitToWidthScale(page);
-          currentScale = initialScale;
-          
-          // Clear message container
-          messageContainer.innerHTML = '';
-          
-          // Render first page with calculated scale
-          renderPage(1);
-          
-          // Set up navigation
-          prevPageBtn.addEventListener('click', onPrevPage);
-          nextPageBtn.addEventListener('click', onNextPage);
-          pageNumberInput.addEventListener('change', onPageNumberChange);
-          
-          // Show controls
-          controls.style.display = 'block';
-        });
-        
-      }).catch(function(error) {
-        clearTimeout(timeoutId);
-        console.error('Error loading PDF:', error);
-        showError('Error loading PDF: ' + error.message);
-      });
-    } catch (decodeError) {
-      clearTimeout(timeoutId);
-      console.error('Error decoding PDF data:', decodeError);
-      showError('Error decoding PDF data: ' + decodeError.message);
+    } catch (e) {
+        console.error('Error processing document message:', e);
     }
-  } catch (e) {
-    console.error('Error in PDF initialization:', e);
-    showError('Error initializing PDF: ' + e.message);
-  }
-}
-
-// Handle File URL loading
-function loadPdfFromUrl(url) {
-  // Set timeout for loading - if PDF isn't loaded in 30 seconds, show error
-  const timeoutId = setTimeout(() => {
-    showError('PDF loading timed out. The file may be too large or corrupted.');
-  }, 30000);
-
-  // Load PDF from URL
-  pdfjsLib.getDocument(url).promise.then(function(pdf) {
-    // Clear the timeout since PDF loaded successfully
-    clearTimeout(timeoutId);
-    
-    pdfDoc = pdf;
-    totalPages = pdf.numPages;
-    
-    // Update page count
-    pageCountSpan.textContent = '/ ' + totalPages;
-    
-    // Send loaded message to React Native
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'loaded',
-        pageCount: totalPages
-      }));
-    }
-    
-    // Calculate the initial scale for the first page
-    pdfDoc.getPage(1).then(function(page) {
-      initialScale = calculateFitToWidthScale(page);
-      currentScale = initialScale;
-      
-      // Clear message container
-      messageContainer.innerHTML = '';
-      
-      // Render first page with calculated scale
-      renderPage(1);
-      
-      // Set up navigation
-      prevPageBtn.addEventListener('click', onPrevPage);
-      nextPageBtn.addEventListener('click', onNextPage);
-      pageNumberInput.addEventListener('change', onPageNumberChange);
-      
-      // Show controls
-      controls.style.display = 'block';
-    });
-    
-  }).catch(function(error) {
-    clearTimeout(timeoutId);
-    console.error('Error loading PDF:', error);
-    showError('Error loading PDF: ' + error.message);
-  });
-}
-
-// Render a specific page
-function renderPage(pageNum) {
-  // Get the page
-  pdfDoc.getPage(pageNum).then(function(page) {
-    // Create a viewport with current scale
-    const viewport = page.getViewport({ scale: currentScale });
-    
-    // Calculate the higher resolution rendering for crisp text
-    const pixelRatio = window.devicePixelRatio || 1;
-    const renderViewport = page.getViewport({ scale: currentScale * pixelRatio });
-    
-    // Create page div
-    const pageDiv = document.createElement('div');
-    pageDiv.className = 'page';
-    pageDiv.style.width = viewport.width + 'px';
-    pageDiv.style.height = viewport.height + 'px';
-    pdfContainer.appendChild(pageDiv);
-    
-    // Create canvas for rendering
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    
-    // Set canvas dimensions to match the higher resolution viewport
-    canvas.width = renderViewport.width;
-    canvas.height = renderViewport.height;
-    
-    // Set display size to match the standard viewport
-    canvas.style.width = viewport.width + 'px';
-    canvas.style.height = viewport.height + 'px';
-    
-    pageDiv.appendChild(canvas);
-    
-    // Create text layer for text selection
-    const textLayerDiv = document.createElement('div');
-    textLayerDiv.className = 'textLayer';
-    textLayerDiv.style.width = viewport.width + 'px';
-    textLayerDiv.style.height = viewport.height + 'px';
-    pageDiv.appendChild(textLayerDiv);
-    
-    // Render PDF page at higher resolution for sharper text
-    const renderContext = {
-      canvasContext: context,
-      viewport: renderViewport,
-      enableWebGL: true
-    };
-    
-    const renderTask = page.render(renderContext);
-    renderTask.promise.then(function() {
-      // Get and render text content
-      return page.getTextContent();
-    }).then(function(textContent) {
-      // Create text layer
-      pdfjsLib.renderTextLayer({
-        textContent: textContent,
-        container: textLayerDiv,
-        viewport: viewport,
-        textDivs: []
-      });
-      
-      // Update current page
-      currentPage = pageNum;
-      pageNumberInput.value = currentPage;
-      
-      // Update UI state
-      updateUIState();
-    });
-  });
-}
-
-// Go to previous page
-function onPrevPage() {
-  if (currentPage <= 1) return;
-  currentPage--;
-  renderPage(currentPage);
-}
-
-// Go to next page
-function onNextPage() {
-  if (currentPage >= totalPages) return;
-  currentPage++;
-  renderPage(currentPage);
-}
-
-// Page number changed
-function onPageNumberChange() {
-  const pageNum = parseInt(pageNumberInput.value);
-  if (pageNum >= 1 && pageNum <= totalPages && pageNum !== currentPage) {
-    renderPage(pageNum);
-  }
-}
-
-// Update UI state
-function updateUIState() {
-  prevPageBtn.disabled = currentPage <= 1;
-  nextPageBtn.disabled = currentPage >= totalPages;
-  pageNumberInput.max = totalPages;
-}
-
-// Listen for messages from React Native
-window.addEventListener('message', function(event) {
-  try {
-    const data = JSON.parse(event.data);
-    if (data.type === 'loadDataUri' && data.dataUri) {
-      initWithDataUri(data.dataUri);
-    }
-  } catch (e) {
-    console.error('Error processing message from React Native:', e);
-  }
 });
 
-// Initialize the PDF viewer
-(function init() {
-  const url = getPdfUrl();
-  if (url) {
-    loadPdfFromUrl(url);
-  } else {
-    // Wait for a message from React Native with data URI
-    console.log('No URL found in query parameters, waiting for data URI message');
-  }
-})(); 
+// Also listen for window messages as a fallback (iOS/Web)
+window.addEventListener('message', function(event) {
+    console.log('Window message received in pdf-viewer.js:', event.data);
+    try {
+        // Handle both string data and MessageEvent.data objects
+        const messageData = typeof event.data === 'string' ? event.data : JSON.stringify(event.data);
+        const message = JSON.parse(messageData);
+        
+        // Handle different message types
+        if (message.type === 'command') {
+            console.log('Command received via window event:', message.action);
+            
+            switch(message.action) {
+                case 'goToPage':
+                    if (message.pageNumber && window.goToPage) {
+                        window.goToPage(message.pageNumber);
+                    }
+                    break;
+                case 'goToNextPage':
+                    if (window.goToNextPage) {
+                        window.goToNextPage();
+                    }
+                    break;
+                case 'goToPreviousPage':
+                    if (window.goToPreviousPage) {
+                        window.goToPreviousPage();
+                    }
+                    break;
+                default:
+                    console.warn('Unknown command:', message.action);
+            }
+        } else if (message.type === 'loadDataUri') {
+            console.log('Loading PDF from data URI (window event)');
+            window.loadPdfFromDataUri(message.dataUri);
+        } else if (message.type === 'loadUrl') {
+            console.log('Loading PDF from URL (window event)');
+            window.loadPdfFromUrl(message.url);
+        }
+    } catch (e) {
+        console.error('Error processing window message:', e);
+    }
+});
+
+// Variables to track state
+let pdfDoc = null;
+let pageNum = 1;
+let pageRendering = false;
+let pageNumPending = null;
+let scale = 1.0;
+let isReady = false;
+let canvas = null;
+let ctx = null;
+let pageCountElement = null;
+let pageNumElement = null;
+let loadingTimeout = null;
+let maxZoom = 3.0;
+let minZoom = 0.5;
+let zoomStep = 0.2;
+let startX, startY, startDistance;
+let currentTouches = [];
+
+// Initialize PDF viewer when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing PDF viewer');
+    
+    // Clear any existing loading timeouts
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+    }
+    
+    // Initialize UI elements
+    canvas = document.getElementById('pdf-canvas');
+    ctx = canvas.getContext('2d');
+    pageCountElement = document.getElementById('page-count');
+    pageNumElement = document.getElementById('page-num');
+    
+    // Set up touch and wheel handlers
+    setupHandlers();
+    
+    // Check for URL params to hide controls
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('hideControls') === 'true') {
+        let controls = document.getElementById('pdf-controls');
+        if (controls) {
+            controls.style.display = 'none';
+        }
+    }
+    
+    // Get file URL from query params
+    const fileParam = urlParams.get('file');
+    if (fileParam) {
+        loadPdfFromUrl(decodeURIComponent(fileParam));
+    } else {
+        // If no file param, wait for message from React Native
+        isReady = true;
+        console.log('No file parameter found, waiting for message...');
+        sendMessageToReactNative({
+            type: 'loaded',
+            message: 'PDF viewer initialized, waiting for document'
+        });
+    }
+});
+
+// Send message to React Native
+function sendMessageToReactNative(message) {
+    try {
+        window.ReactNativeWebView.postMessage(JSON.stringify(message));
+    } catch (e) {
+        console.error('Error sending message to React Native:', e);
+    }
+}
+
+// Load PDF from URL
+function loadPdfFromUrl(url) {
+    console.log('Loading PDF from URL:', url);
+    
+    // Set loading timeout
+    loadingTimeout = setTimeout(function() {
+        sendMessageToReactNative({
+            type: 'error',
+            message: 'PDF loading timeout'
+        });
+    }, 30000); // 30 seconds timeout
+    
+    // Load the PDF
+    const loadingTask = pdfjsLib.getDocument(url);
+    
+    loadingTask.promise
+        .then(function(pdf) {
+            // Clear loading timeout
+            if (loadingTimeout) {
+                clearTimeout(loadingTimeout);
+                loadingTimeout = null;
+            }
+            
+            console.log('PDF loaded with ' + pdf.numPages + ' pages');
+            pdfDoc = pdf;
+            
+            // Update page count
+            if (pageCountElement) {
+                pageCountElement.textContent = pdf.numPages;
+            }
+            
+            // Send pageCount to React Native
+            sendMessageToReactNative({
+                type: 'loaded',
+                pageCount: pdf.numPages,
+                currentPage: 1
+            });
+            
+            isReady = true;
+            
+            // Render first page
+            renderPage(1);
+        })
+        .catch(function(error) {
+            // Clear loading timeout
+            if (loadingTimeout) {
+                clearTimeout(loadingTimeout);
+                loadingTimeout = null;
+            }
+            
+            console.error('Error loading PDF:', error);
+            sendMessageToReactNative({
+      type: 'error',
+                message: 'Failed to load PDF: ' + error.message
+            });
+        });
+}
+
+// Load PDF from data URI
+function loadPdfFromDataUri(dataUri) {
+    console.log('Loading PDF from data URI');
+    
+    // Decode base64 data URI
+    try {
+        const pdfData = atob(dataUri.split(',')[1]);
+        const loadingTask = pdfjsLib.getDocument({data: pdfData});
+        
+        loadingTask.promise
+            .then(function(pdf) {
+                console.log('PDF loaded with ' + pdf.numPages + ' pages');
+                pdfDoc = pdf;
+                
+                // Update page count
+                if (pageCountElement) {
+                    pageCountElement.textContent = pdf.numPages;
+                }
+                
+                // Send pageCount to React Native
+                sendMessageToReactNative({
+                    type: 'loaded',
+                    pageCount: pdf.numPages,
+                    currentPage: 1
+                });
+                
+                isReady = true;
+                
+                // Render first page
+                renderPage(1);
+            })
+            .catch(function(error) {
+                console.error('Error loading PDF:', error);
+                sendMessageToReactNative({
+                    type: 'error',
+                    message: 'Failed to load PDF: ' + error.message
+                });
+            });
+    } catch (e) {
+        console.error('Error decoding data URI:', e);
+        sendMessageToReactNative({
+            type: 'error',
+            message: 'Failed to decode data URI: ' + e.message
+        });
+    }
+}
+
+// Function to render a specific page
+function renderPage(num) {
+    pageRendering = true;
+    
+    // Update page number display
+    if (pageNumElement) {
+        pageNumElement.textContent = num;
+    }
+    
+    // Using promise to fetch the page
+    pdfDoc.getPage(num).then(function(page) {
+        console.log('Rendering page', num);
+        
+        // Calculate the scale to fit the page in the canvas
+        const viewport = page.getViewport({scale: scale});
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        // Render PDF page into canvas context
+        const renderContext = {
+            canvasContext: ctx,
+            viewport: viewport
+        };
+        
+        const renderTask = page.render(renderContext);
+        
+        // Wait for rendering to finish
+        renderTask.promise.then(function() {
+            pageRendering = false;
+            
+            // Send page change notification
+            sendMessageToReactNative({
+                type: 'pageChanged',
+                currentPage: pageNum
+            });
+            
+            if (pageNumPending !== null) {
+                // New page rendering is pending
+                renderPage(pageNumPending);
+                pageNumPending = null;
+            }
+        });
+    }).catch(function(error) {
+        console.error('Error rendering page:', error);
+        pageRendering = false;
+        
+        sendMessageToReactNative({
+            type: 'error',
+            message: 'Error rendering page: ' + error.message
+        });
+    });
+}
+
+// Navigation functions
+function queueRenderPage(num) {
+    if (pageRendering) {
+        pageNumPending = num;
+    } else {
+        renderPage(num);
+    }
+}
+
+function goToPage(num) {
+    console.log('goToPage called with page:', num);
+    if (!pdfDoc) {
+        console.error('PDF not loaded yet');
+        return;
+    }
+    
+    if (num < 1 || num > pdfDoc.numPages) {
+        console.warn('Invalid page number:', num);
+        return;
+    }
+    
+    pageNum = num;
+    queueRenderPage(num);
+}
+
+function goToNextPage() {
+    console.log('goToNextPage called');
+    if (!pdfDoc) {
+        console.error('PDF not loaded yet');
+        return;
+    }
+    
+    if (pageNum >= pdfDoc.numPages) {
+        console.log('Already at last page');
+        return;
+    }
+    
+    pageNum++;
+    queueRenderPage(pageNum);
+}
+
+function goToPreviousPage() {
+    console.log('goToPreviousPage called');
+    if (!pdfDoc) {
+        console.error('PDF not loaded yet');
+        return;
+    }
+    
+    if (pageNum <= 1) {
+        console.log('Already at first page');
+        return;
+    }
+    
+    pageNum--;
+    queueRenderPage(pageNum);
+}
+
+// Zoom functions
+function zoomIn() {
+    if (scale < maxZoom) {
+        scale += zoomStep;
+        queueRenderPage(pageNum);
+    }
+}
+
+function zoomOut() {
+    if (scale > minZoom) {
+        scale -= zoomStep;
+        queueRenderPage(pageNum);
+    }
+}
+
+// Setup touch and wheel handlers
+function setupHandlers() {
+    // Setup touch handlers for panning and zooming
+    canvas.addEventListener('touchstart', handleTouchStart, false);
+    canvas.addEventListener('touchmove', handleTouchMove, false);
+    canvas.addEventListener('touchend', handleTouchEnd, false);
+    
+    // Setup mouse wheel for zooming
+    canvas.addEventListener('wheel', handleWheel, false);
+    
+    // Setup double-click for text selection
+    canvas.addEventListener('dblclick', handleDoubleClick, false);
+    
+    // Button click handlers if elements exist
+    const prevButton = document.getElementById('prev');
+    if (prevButton) {
+        prevButton.addEventListener('click', function() {
+            goToPreviousPage();
+        });
+    }
+    
+    const nextButton = document.getElementById('next');
+    if (nextButton) {
+        nextButton.addEventListener('click', function() {
+            goToNextPage();
+        });
+    }
+    
+    const zoomInButton = document.getElementById('zoom-in');
+    if (zoomInButton) {
+        zoomInButton.addEventListener('click', function() {
+            zoomIn();
+        });
+    }
+    
+    const zoomOutButton = document.getElementById('zoom-out');
+    if (zoomOutButton) {
+        zoomOutButton.addEventListener('click', function() {
+            zoomOut();
+        });
+    }
+}
+
+// Touch event handlers
+function handleTouchStart(evt) {
+    startX = evt.touches[0].clientX;
+    startY = evt.touches[0].clientY;
+    currentTouches = evt.touches;
+    
+    // For pinch zoom
+    if (evt.touches.length === 2) {
+        startDistance = Math.hypot(
+            evt.touches[0].clientX - evt.touches[1].clientX,
+            evt.touches[0].clientY - evt.touches[1].clientY
+        );
+    }
+}
+
+function handleTouchMove(evt) {
+    if (evt.touches.length === 2 && currentTouches.length === 2) {
+        // Handle pinch zoom
+        const currentDistance = Math.hypot(
+            evt.touches[0].clientX - evt.touches[1].clientX,
+            evt.touches[0].clientY - evt.touches[1].clientY
+        );
+        
+        const delta = currentDistance - startDistance;
+        if (Math.abs(delta) > 10) {
+            if (delta > 0 && scale < maxZoom) {
+                scale += zoomStep;
+            } else if (delta < 0 && scale > minZoom) {
+                scale -= zoomStep;
+            }
+            queueRenderPage(pageNum);
+            startDistance = currentDistance;
+        }
+    }
+}
+
+function handleTouchEnd(evt) {
+    currentTouches = evt.touches;
+}
+
+// Mouse wheel handler for zooming
+function handleWheel(evt) {
+    evt.preventDefault();
+    
+    if (evt.deltaY < 0) {
+        zoomIn();
+    } else {
+        zoomOut();
+    }
+}
+
+// Double-click handler for text selection
+function handleDoubleClick(evt) {
+    // Get text at point
+    if (!pdfDoc) return;
+    
+    const boundingRect = canvas.getBoundingClientRect();
+    const x = evt.clientX - boundingRect.left;
+    const y = evt.clientY - boundingRect.top;
+    
+    pdfDoc.getPage(pageNum).then(function(page) {
+        const viewport = page.getViewport({scale: scale});
+        
+        // Convert canvas coordinates to PDF coordinates
+        const pdfX = x / scale;
+        const pdfY = (viewport.height - y) / scale;
+        
+        page.getTextContent().then(function(textContent) {
+            let selectedText = '';
+            
+            for (let item of textContent.items) {
+                const tx = viewport.transform[4] + item.transform[4] * viewport.scale;
+                const ty = viewport.transform[5] - item.transform[5] * viewport.scale;
+                
+                const rect = {
+                    left: tx,
+                    top: ty - item.height,
+                    right: tx + item.width,
+                    bottom: ty
+                };
+                
+                if (
+                    x >= rect.left && 
+                    x <= rect.right && 
+                    y >= rect.top && 
+                    y <= rect.bottom
+                ) {
+                    selectedText = item.str;
+                    break;
+                }
+            }
+            
+            if (selectedText) {
+                console.log('Selected text:', selectedText);
+                sendMessageToReactNative({
+                    type: 'textSelected',
+                    selectedText: selectedText
+                });
+            }
+        });
+    });
+}
+
+// Re-export navigation functions to global scope
+window.goToPage = goToPage;
+window.goToNextPage = goToNextPage;
+window.goToPreviousPage = goToPreviousPage; 

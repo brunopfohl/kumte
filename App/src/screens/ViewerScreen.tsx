@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ScrollView, ActivityIndicator, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ScrollView, ActivityIndicator, Platform, PermissionsAndroid, Alert } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -7,7 +7,7 @@ import RNFS from 'react-native-fs';
 import ImageViewer from 'react-native-image-zoom-viewer';
 import { DocumentService } from '../services/DocumentService';
 import { FileService } from '../services/FileService';
-import PdfViewer from '../components/PdfViewer';
+import PdfViewerWithControls from '../components/PdfViewerWithControls';
 
 const { width, height } = Dimensions.get('window');
 
@@ -581,10 +581,8 @@ export const ViewerScreen = () => {
 
     if (type === 'pdf') {
       return (
-        <PdfViewer 
+        <PdfViewerWithControls 
           uri={fileInfo.path}
-          onTextSelected={handleTextSelected}
-          onLoaded={handlePdfLoaded}
           onError={handlePdfError}
         />
       );

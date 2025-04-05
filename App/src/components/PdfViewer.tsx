@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, Dimensions, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
@@ -15,31 +15,123 @@ const INLINE_HTML_PATH = Platform.OS === 'android'
 interface PdfViewerProps {
   uri: string;
   onTextSelected?: (text: string) => void;
-  onLoaded?: (pageCount: number) => void;
+  onLoaded?: (pageCount: number, currentPage: number) => void;
+  onPageChanged?: (pageNumber: number, totalPages: number) => void;
   onError?: (error: string) => void;
+  hideControls?: boolean; // Option to hide built-in controls
+}
+
+export interface PdfViewerMethods {
+  goToPage: (pageNumber: number) => void;
+  goToNextPage: () => void;
+  goToPreviousPage: () => void;
+  getCurrentPage: () => number;
+  getTotalPages: () => number;
 }
 
 interface WebViewMessage {
   type: string;
   message?: string;
   pageCount?: number;
+  currentPage?: number;
   level?: 'log' | 'error' | 'warn' | 'info';
   selectedText?: string;
+  action?: string;
+  pageNumber?: number;
 }
 
 /**
  * PDF Viewer component based on PDF.js
  * Supports file:// URIs, content:// URIs, http:// URLs, and data:application/pdf URIs
+ * Can be controlled externally via ref methods
  */
-const PdfViewer: React.FC<PdfViewerProps> = ({
+const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
   uri,
   onTextSelected,
   onLoaded,
-  onError
-}) => {
+  onPageChanged,
+  onError,
+  hideControls = false
+}, ref) => {
   const webViewRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [isReady, setIsReady] = useState(false);
+
+  // Expose methods to parent components via ref
+  useImperativeHandle(ref, () => ({
+    goToPage: (pageNumber: number) => {
+      if (!isReady) return;
+      const safePageNumber = Math.max(1, Math.min(pageNumber, totalPages));
+      
+      setTimeout(() => {
+        webViewRef.current?.injectJavaScript(`
+          try {
+            if (typeof goToPage === 'function') {
+              goToPage(${safePageNumber});
+              console.log('Direct call to goToPage(${safePageNumber})');
+            } else if (typeof pdfViewerGoToPage === 'function') {
+              pdfViewerGoToPage(${safePageNumber});
+              console.log('Fallback call to pdfViewerGoToPage(${safePageNumber})');
+            } else {
+              console.error('Navigation function goToPage not found');
+            }
+          } catch(e) {
+            console.error('Error navigating to page:', e.message);
+          }
+          true;
+        `);
+      }, 100); // Small delay to ensure WebView is ready
+    },
+    goToNextPage: () => {
+      if (!isReady) return;
+      
+      setTimeout(() => {
+        webViewRef.current?.injectJavaScript(`
+          try {
+            if (typeof goToNextPage === 'function') {
+              console.log('Direct call to goToNextPage()');
+              goToNextPage();
+            } else if (typeof pdfViewerGoToNextPage === 'function') {
+              console.log('Fallback call to pdfViewerGoToNextPage()');
+              pdfViewerGoToNextPage();
+            } else {
+              console.error('Navigation function goToNextPage not found');
+            }
+          } catch(e) {
+            console.error('Error navigating to next page:', e.message);
+          }
+          true;
+        `);
+      }, 100); // Small delay to ensure WebView is ready
+    },
+    goToPreviousPage: () => {
+      if (!isReady) return;
+      
+      setTimeout(() => {
+        webViewRef.current?.injectJavaScript(`
+          try {
+            if (typeof goToPreviousPage === 'function') {
+              goToPreviousPage();
+              console.log('Direct call to goToPreviousPage()');
+            } else if (typeof pdfViewerGoToPreviousPage === 'function') {
+              pdfViewerGoToPreviousPage();
+              console.log('Fallback call to pdfViewerGoToPreviousPage()');
+            } else {
+              console.error('Navigation function goToPreviousPage not found');
+            }
+          } catch(e) {
+            console.error('Error navigating to previous page:', e.message);
+          }
+          true;
+        `);
+      }, 100); // Small delay to ensure WebView is ready
+    },
+    getCurrentPage: () => currentPage,
+    getTotalPages: () => totalPages
+  }));
 
   // Handle messages from WebView
   const handleWebViewMessage = (event: any) => {
@@ -49,8 +141,18 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
       if (data.type === 'loaded') {
         setLoading(false);
-        if (data.pageCount && onLoaded) {
-          onLoaded(data.pageCount);
+        setIsReady(true);
+        if (data.pageCount) {
+          setTotalPages(data.pageCount);
+          setCurrentPage(1);
+          if (onLoaded) {
+            onLoaded(data.pageCount, 1);
+          }
+        }
+      } else if (data.type === 'pageChanged' && data.currentPage) {
+        setCurrentPage(data.currentPage);
+        if (onPageChanged) {
+          onPageChanged(data.currentPage, totalPages);
         }
       } else if (data.type === 'error') {
         setLoading(false);
@@ -93,7 +195,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     if (uri.startsWith('data:application/pdf;base64,')) {
       console.log('Using inline viewer approach for data URI');
       return { 
-        uri: INLINE_HTML_PATH,
+        uri: `${INLINE_HTML_PATH}?hideControls=${hideControls ? 'true' : 'false'}`,
         headers: { 'Cache-Control': 'no-cache' }
       };
     }
@@ -101,7 +203,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     // For file:// URIs and http:// URLs - pass through query param
     if (uri.startsWith('file://') || uri.startsWith('http')) {
       return { 
-        uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}`,
+        uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}&hideControls=${hideControls ? 'true' : 'false'}`,
         headers: { 'Cache-Control': 'no-cache' }
       };
     }
@@ -109,14 +211,14 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     // For content:// URIs (we pass the URI to the html)
     if (uri.startsWith('content://')) {
       return { 
-        uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}`,
+        uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}&hideControls=${hideControls ? 'true' : 'false'}`,
         headers: { 'Cache-Control': 'no-cache' }
       };
     }
     
     // Default fallback
     return { 
-      uri: HTML_PATH,
+      uri: `${HTML_PATH}?hideControls=${hideControls ? 'true' : 'false'}`,
       headers: { 'Cache-Control': 'no-cache' }
     };
   };
@@ -124,14 +226,25 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   // Inject PDF data for data URIs after WebView is loaded
   const handleWebViewLoad = () => {
     if (uri.startsWith('data:application/pdf;base64,')) {
-      // For data URIs, we inject the data via postMessage after load
-      webViewRef.current?.injectJavaScript(`
-        window.postMessage(JSON.stringify({
-          type: 'loadDataUri',
-          dataUri: '${uri}'
-        }), '*');
-        true;
-      `);
+      // For data URIs, we inject the data via direct function call after load
+      setTimeout(() => {
+        webViewRef.current?.injectJavaScript(`
+          try {
+            if (typeof loadPdfFromDataUri === 'function') {
+              loadPdfFromDataUri('${uri}');
+              console.log('Direct call to loadPdfFromDataUri()');
+            } else if (typeof processPdfData === 'function') {
+              processPdfData('${uri}');
+              console.log('Fallback call to processPdfData()');
+            } else {
+              console.error('PDF loading function not found');
+            }
+          } catch(e) {
+            console.error('Error loading PDF data:', e.message);
+          }
+          true;
+        `);
+      }, 300); // Longer delay for loading data
     }
   };
 
@@ -215,7 +328,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       {renderWebView()}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -253,4 +366,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PdfViewer; 
+export default PdfViewer;
