@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Act
 import { LibraryScreenProps } from '../types';
 import { FileService, Document, documentService } from '../services/FileService';
 import Icon from '../components/icons';
+import { StyledButton } from '../components/StyledButton';
 
 export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -110,29 +111,18 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         <Text style={styles.subtitle}>Your AI Document Companion</Text>
       </View>
       
-      <View style={styles.actionContainer}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.importButton, importing && styles.buttonDisabled]}
+      <View className="flex-row px-5 pt-5 mb-5 gap-3">
+        <StyledButton
+          title="Import"
           onPress={handleImportDocument}
-          disabled={importing}
-        >
-          {importing ? (
-            <ActivityIndicator color="#6c5ce7" size="small" />
-          ) : (
-            <>
-              <Icon name="download" size={20} color="#6c5ce7" style={styles.buttonIcon} />
-              <Text style={[styles.actionButtonText, styles.importButtonText]}>Import</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          variant="primary"
+        />
         
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.cameraButton]}
+        <StyledButton
+          title="Capture"
           onPress={handleCaptureDocument}
-        >
-          <Icon name="camera" size={20} color="#00b894" style={styles.buttonIcon} />
-          <Text style={[styles.actionButtonText, styles.cameraButtonText]}>Capture</Text>
-        </TouchableOpacity>
+          variant="secondary"
+        />
       </View>
       
       <View style={styles.recentContainer}>
