@@ -20,6 +20,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [selectedText, setSelectedText] = useState<string | undefined>(undefined);
+  const [aiPanelVisible, setAiPanelVisible] = useState(false);
 
   const handlePdfLoaded = (pageCount: number, initialPage: number) => {
     setTotalPages(pageCount);
@@ -29,6 +30,11 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
   const handlePageChanged = (pageNumber: number, totalPageCount: number) => {
     setCurrentPage(pageNumber);
     setTotalPages(totalPageCount);
+    
+    // If page changes, hide any AI panel that might be visible
+    if (aiPanelVisible) {
+      setAiPanelVisible(false);
+    }
   };
 
   const handleTextSelected = (text: string) => {
@@ -36,12 +42,11 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
   };
 
   const handleAIExplain = (text: string) => {
-    // This would be replaced with actual AI explanation functionality
-    Alert.alert(
-      "AI Explanation",
-      `In the future, this will provide an AI explanation for: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`,
-      [{ text: "OK" }]
-    );
+    // Toggle AI panel visibility when AI explain is requested
+    setAiPanelVisible(!aiPanelVisible);
+    
+    // In the future, this would call the actual AI service
+    console.log(`AI insight requested for: "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"`);
   };
 
   return (
@@ -71,13 +76,18 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f9f9f9',
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+    margin: 8,
   },
   navigationBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
   }
 });
 
