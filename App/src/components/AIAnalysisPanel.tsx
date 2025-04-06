@@ -325,7 +325,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   });
   
   useEffect(() => {
-    if (visible && selectedText) {
+    if (visible) {
       analyzeWithGemini(selectedText);
       extractKeywords(selectedText);
       setCurrentQuery('Initial analysis');
@@ -333,15 +333,13 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   }, [visible, selectedText, currentLanguage.code]);
   
   useEffect(() => {
-    if (visible && selectedText && currentLanguage) {
+    if (visible && currentLanguage) {
       analyzeWithGemini(selectedText);
       extractKeywords(selectedText);
     }
   }, [currentLanguage.code]);
 
   const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
-    if (!text?.trim()) return;
-    
     setGeminiLoading(true);
     setGeminiResponse('');
     
@@ -388,8 +386,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   };
 
   const extractKeywords = async (text: string) => {
-    if (!text?.trim()) return;
-    
     setKeywordsLoading(true);
     
     try {

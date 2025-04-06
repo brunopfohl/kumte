@@ -8,7 +8,7 @@ interface PdfNavigationBarProps {
   viewerRef: React.RefObject<PdfViewerMethods | null>;
   currentPage: number;
   totalPages: number;
-  onAIExplain?: (selectedText: string) => void;
+  onAIExplain?: (selectedText?: string) => void;
   selectedText?: string;
   style?: any;
   documentUri: string;
@@ -129,8 +129,6 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   };
 
   const handleAIExplain = () => {
-    if (selectedText) {
-      // Toggle chat window
       const isOpening = !chatVisible;
       setChatVisible(isOpening);
       
@@ -150,7 +148,6 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
       if (onAIExplain) {
         onAIExplain(selectedText);
       }
-    }
   };
 
   // Define colors based on state
@@ -209,14 +206,13 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
         <TouchableOpacity 
           style={styles.textButton}
           onPress={handleAIExplain}
-          disabled={!selectedText}
         >
-          <ChatIcon color={chatVisible ? activeColor : (selectedText ? iconColor : disabledColor)} />
+          <ChatIcon color={chatVisible ? activeColor : iconColor} />
           <Text style={[
             styles.buttonText,
-            { color: chatVisible ? activeColor : (selectedText ? iconColor : disabledColor) }
+            {color: chatVisible ? activeColor : (selectedText ? iconColor : iconColor)}
           ]}>
-            Analyze Text
+            Analyze
           </Text>
         </TouchableOpacity>
       </Animated.View>

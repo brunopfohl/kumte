@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import PdfViewer, { PdfViewerMethods } from './PdfViewer';
 import PdfNavigationBar from './PdfNavigationBar';
 
@@ -31,6 +31,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
     setCurrentPage(pageNumber);
     setTotalPages(totalPageCount);
     
+    // If page changes, hide any AI panel that might be visible
     if (aiPanelVisible) {
       setAiPanelVisible(false);
     }
@@ -40,10 +41,9 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
     setSelectedText(text);
   };
 
-  const handleAIExplain = (text: string) => {
+  const handleAIExplain = (text?: string) => {
+    // Toggle AI panel visibility when AI explain is requested
     setAiPanelVisible(!aiPanelVisible);
-    
-    console.log(`AI insight requested for: "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"`);
   };
 
   return (
@@ -55,7 +55,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
         onPageChanged={handlePageChanged}
         onTextSelected={handleTextSelected}
         onError={onError}
-        hideControls={true}
+        hideControls={true} // Hide built-in controls since we're using custom ones
       />
       
       <PdfNavigationBar
@@ -66,7 +66,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
         onAIExplain={handleAIExplain}
         style={styles.navigationBar}
         documentUri={uri}
-        documentType="pdf"
+        documentType="pdf" // This component is specifically for PDFs
       />
     </View>
   );
