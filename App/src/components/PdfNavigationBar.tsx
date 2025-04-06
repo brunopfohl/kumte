@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, TextInput, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Platform, Animated, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { DocumentService } from '../services/DocumentService';
-import { Document } from '../services/FileService';
+import AIAnalysisPanel from './AIAnalysisPanel';
 
 interface PdfNavigationBarProps {
   viewerRef: React.RefObject<PdfViewerMethods | null>;
@@ -81,14 +80,9 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   documentType
 }) => {
   const [chatVisible, setChatVisible] = useState(false);
-  const [inputText, setInputText] = useState('');
   const chatAnimValue = useRef(new Animated.Value(0)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  
-  // Gemini API state
-  const [geminiResponse, setGeminiResponse] = useState<string>('');
-  const [geminiLoading, setGeminiLoading] = useState(false);
 
   // Listen to keyboard events
   useEffect(() => {
@@ -153,37 +147,6 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
     viewerRef.current?.goToNextPage();
   };
 
-  // Function to analyze text with Gemini using DocumentService
-  const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
-    if (!text?.trim()) return;
-    
-    setGeminiLoading(true);
-    setGeminiResponse('');
-    
-    try {
-      // Create a document object using the actual PDF that's being viewed
-      const doc: Document = {
-        id: `selection-${Date.now()}`,
-        title: 'Current Document',
-        type: documentType,
-        uri: documentUri,
-        date: new Date()
-      };
-      
-      // Use DocumentService.analyzeDocumentWithGemini with the selected text as instructions
-      const fullInstruction = `${instruction}\n\nHere is the text to analyze: "${text}"`;
-      const response = await DocumentService.analyzeDocumentWithGemini(doc, fullInstruction);
-      
-      setGeminiResponse(response);
-    } catch (error) {
-      console.error('Error analyzing with Gemini:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setGeminiResponse(`Error analyzing text: ${errorMessage}`);
-    } finally {
-      setGeminiLoading(false);
-    }
-  };
-
   const handleAIExplain = () => {
     if (selectedText) {
       // Toggle chat window
@@ -202,11 +165,6 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
         Keyboard.dismiss();
       }
       
-      // If opening the chat, automatically analyze with Gemini
-      if (isOpening) {
-        analyzeWithGemini(selectedText);
-      }
-      
       // Notify parent component
       if (onAIExplain) {
         onAIExplain(selectedText);
@@ -214,29 +172,10 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
     }
   };
 
-  const handleSendPress = () => {
-    if (!inputText.trim()) return;
-    
-    // Use the input text as a follow-up instruction for Gemini
-    analyzeWithGemini(selectedText || '', inputText);
-    setInputText('');
-    Keyboard.dismiss();
-  };
-
   // Define colors based on state
   const iconColor = "#6b7280"; // Default icon color
   const disabledColor = "#d1d5db"; // Lighter color for disabled state
   const activeColor = "#8b5cf6"; // Purple for active analyze text
-
-  const chatTranslateY = chatAnimValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [100, 0]
-  });
-
-  const chatOpacity = chatAnimValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1]
-  });
 
   // Calculate chat container position based on keyboard
   const chatContainerStyle = {
@@ -250,70 +189,17 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
 
   return (
     <View style={[styles.container, chatContainerStyle]}>
-      {/* Chat Window */}
-      {chatVisible && (
-        <Animated.View 
-          style={[
-            styles.chatWindow,
-            {
-              opacity: chatOpacity,
-              transform: [{ translateY: chatTranslateY }]
-            }
-          ]}
-        >
-          <View style={styles.chatHeader}>
-            <Text style={styles.chatTitle}>AI Analysis</Text>
-            <TouchableOpacity onPress={handleAIExplain}>
-              <Text style={styles.closeButton}>×</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.selectedTextContainer}>
-            <Text style={styles.selectedTextLabel}>SELECTED TEXT</Text>
-            <Text style={styles.selectedTextContent} numberOfLines={2}>
-              {selectedText}
-            </Text>
-          </View>
-          
-          <View style={styles.messageArea}>
-            {geminiLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#8b5cf6" />
-                <Text style={styles.loadingText}>Getting analysis from Gemini...</Text>
-              </View>
-            ) : geminiResponse ? (
-              <Text style={styles.messageText}>{geminiResponse}</Text>
-            ) : (
-              <Text style={styles.messagePlaceholder}>
-                AI response will appear here...
-              </Text>
-            )}
-          </View>
-          
-          <View style={styles.chatInputContainer}>
-            <TextInput
-              style={styles.chatInput}
-              placeholder="Ask a follow-up question..."
-              value={inputText}
-              onChangeText={setInputText}
-              returnKeyType="send"
-              onSubmitEditing={handleSendPress}
-            />
-            <TouchableOpacity 
-              style={styles.sendButton}
-              disabled={inputText.trim().length === 0}
-              onPress={handleSendPress}
-            >
-              <Text style={[
-                styles.sendButtonText,
-                inputText.trim().length === 0 && styles.sendButtonDisabled
-              ]}>
-                Send
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      )}
+      {/* AIAnalysisPanel */}
+      <AIAnalysisPanel
+        visible={chatVisible}
+        selectedText={selectedText || ''}
+        documentUri={documentUri}
+        documentType={documentType}
+        animValue={chatAnimValue}
+        keyboardHeight={keyboardHeight}
+        keyboardVisible={keyboardVisible}
+        onClose={handleAIExplain}
+      />
 
       {/* Toolbar */}
       <Animated.View style={[styles.toolbarContainer, toolbarContainerStyle]}>
@@ -441,122 +327,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  // Chat window styles
-  chatWindow: {
-    width: '90%',
-    maxWidth: 500,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    overflow: 'hidden',
-    maxHeight: 400,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  chatTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeButton: {
-    fontSize: 24,
-    color: '#6b7280',
-    fontWeight: '400',
-    marginTop: -4,
-  },
-  selectedTextContainer: {
-    padding: 16,
-    backgroundColor: '#f9fafb',
-    maxHeight: 100,
-  },
-  selectedTextLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  selectedTextContent: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
-  },
-  messageArea: {
-    padding: 16,
-    minHeight: 80,
-    maxHeight: 200,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 8,
-  },
-  messageText: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
-  },
-  messagePlaceholder: {
-    fontSize: 14,
-    color: '#9ca3af',
-    fontStyle: 'italic',
-  },
-  chatInputContainer: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-    padding: 12,
-  },
-  chatInput: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: '#374151',
-  },
-  sendButton: {
-    marginLeft: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendButtonText: {
-    color: '#8b5cf6',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  sendButtonDisabled: {
-    color: '#d1d5db',
   }
 });
 
