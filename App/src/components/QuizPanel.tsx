@@ -68,17 +68,6 @@ interface Quiz {
   documentUri: string;
 }
 
-// Constants for quiz state
-const QUIZ_STATES_KEY = 'quiz_states';
-interface QuizState {
-  quizId: string;
-  currentQuestionIndex: number;
-  score: number;
-  completed: boolean;
-  dismissed: boolean;
-  timestamp: number;
-}
-
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const QuizPanel: React.FC<QuizPanelProps> = ({
@@ -104,9 +93,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
   const [answerSubmitted, setAnswerSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(LANGUAGES[0]);
-  const [showQuizSelection, setShowQuizSelection] = useState(false);
-  const [savedQuizzes, setSavedQuizzes] = useState<Quiz[]>([]);
-  const [dismissedQuizzes, setDismissedQuizzes] = useState<Record<string, QuizState>>({});
 
   // Load the selected language from AsyncStorage
   useEffect(() => {
@@ -127,71 +113,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     loadLanguage();
   }, [visible]); // Reload whenever panel becomes visible
 
-  // Handle initial quiz selection display
-  useEffect(() => {
-    if (visible && !quizGenerated && !generating && savedQuizzes.length > 0) {
-      setShowQuizSelection(true);
-    }
-  }, [visible, savedQuizzes, quizGenerated, generating]);
-
-  useEffect(() => {
-    // Load dismissed quiz states when component mounts
-    const loadQuizStates = async () => {
-      try {
-        const statesStr = await AsyncStorage.getItem(QUIZ_STATES_KEY);
-        if (statesStr) {
-          const states = JSON.parse(statesStr) as Record<string, QuizState>;
-          setDismissedQuizzes(states);
-        }
-      } catch (error) {
-        console.error('Error loading quiz states:', error);
-      }
-    };
-
-    // Load saved quizzes
-    const loadSavedQuizzes = async () => {
-      try {
-        // Try the new storage format first
-        try {
-          const indexStr = await AsyncStorage.getItem('quiz_index');
-          if (indexStr) {
-            const quizIndex = JSON.parse(indexStr) as Omit<Quiz, 'questions'>[];
-            
-            // Convert string dates to Date objects
-            const processedQuizMeta = quizIndex.map(quiz => ({
-              ...quiz,
-              createdAt: new Date(quiz.createdAt),
-              questions: [] as Question[] // Empty placeholder
-            }));
-            
-            setSavedQuizzes(processedQuizMeta);
-            return;
-          }
-        } catch (error) {
-          console.log('Could not find quizzes in new storage format, trying legacy format...');
-        }
-        
-        // Fall back to the old storage format
-        const quizzesStr = await AsyncStorage.getItem('quizzes');
-        if (quizzesStr) {
-          const parsedQuizzes = JSON.parse(quizzesStr) as Quiz[];
-          const processedQuizzes = parsedQuizzes.map(quiz => ({
-            ...quiz,
-            createdAt: new Date(quiz.createdAt)
-          }));
-          setSavedQuizzes(processedQuizzes);
-        }
-      } catch (error) {
-        console.error('Error loading saved quizzes:', error);
-      }
-    };
-    
-    if (visible) {
-      loadQuizStates();
-      loadSavedQuizzes();
-    }
-  }, [visible]);
-
   const translateY = animValue.interpolate({
     inputRange: [0, 1],
     outputRange: [100, 0]
@@ -209,45 +130,11 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     setSelectedAnswer(null);
     setAnswerSubmitted(false);
     setScore(0);
-    setShowQuizSelection(false);
   };
 
-  // Function to dismiss a quiz and save its state
-  const dismissQuiz = async () => {
-    if (currentQuiz) {
-      try {
-        // Save the current state of the quiz
-        const quizState: QuizState = {
-          quizId: currentQuiz.id,
-          currentQuestionIndex,
-          score,
-          completed: false,
-          dismissed: true,
-          timestamp: Date.now()
-        };
-        
-        // Update the local state
-        setDismissedQuizzes(prev => ({
-          ...prev,
-          [currentQuiz.id]: quizState
-        }));
-        
-        // Save to AsyncStorage
-        const statesStr = await AsyncStorage.getItem(QUIZ_STATES_KEY);
-        const states: Record<string, QuizState> = statesStr ? JSON.parse(statesStr) : {};
-        states[currentQuiz.id] = quizState;
-        await AsyncStorage.setItem(QUIZ_STATES_KEY, JSON.stringify(states));
-        
-        // Reset the quiz view
-        resetQuiz();
-        setShowQuizSelection(true);
-      } catch (error) {
-        console.error('Error dismissing quiz:', error);
-        Alert.alert('Error', 'Failed to save quiz state');
-      }
-    } else {
-      resetQuiz();
-    }
+  // Simplify dismissQuiz function - just reset the quiz
+  const dismissQuiz = () => {
+    resetQuiz();
   };
 
   const handleAnswerSelect = (index: number) => {
@@ -277,39 +164,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
       setSelectedAnswer(null);
       setAnswerSubmitted(false);
     } else {
-      // Quiz completed, update quiz state
-      if (currentQuiz) {
-        const updateQuizState = async () => {
-          try {
-            const quizState: QuizState = {
-              quizId: currentQuiz.id,
-              currentQuestionIndex: currentQuiz.questions.length - 1,
-              score,
-              completed: true,
-              dismissed: false,
-              timestamp: Date.now()
-            };
-            
-            // Update the local state
-            setDismissedQuizzes(prev => ({
-              ...prev,
-              [currentQuiz.id]: quizState
-            }));
-            
-            // Save to AsyncStorage
-            const statesStr = await AsyncStorage.getItem(QUIZ_STATES_KEY);
-            const states: Record<string, QuizState> = statesStr ? JSON.parse(statesStr) : {};
-            states[currentQuiz.id] = quizState;
-            await AsyncStorage.setItem(QUIZ_STATES_KEY, JSON.stringify(states));
-          } catch (error) {
-            console.error('Error saving quiz completion state:', error);
-          }
-        };
-        
-        updateQuizState();
-      }
-      
-      // Show quiz completed alert
+      // Quiz completed, just show alert
       Alert.alert(
         'Quiz Completed!',
         `Your score: ${score}/${currentQuiz.questions.length}`,
@@ -321,59 +176,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     }
   };
   
-  // Load a saved quiz with its questions
-  const loadSavedQuiz = async (quizId: string) => {
-    try {
-      setGenerating(true); // Show loading state
-      
-      // Get the quiz metadata
-      const indexStr = await AsyncStorage.getItem('quiz_index');
-      if (indexStr) {
-        const quizIndex = JSON.parse(indexStr) as Omit<Quiz, 'questions'>[];
-        const quizMeta = quizIndex.find(q => q.id === quizId);
-        
-        if (quizMeta) {
-          // Get the questions
-          const questionsStr = await AsyncStorage.getItem(`quiz_${quizId}`);
-          if (questionsStr) {
-            const questions = JSON.parse(questionsStr) as Question[];
-            
-            // Create the full quiz object
-            const quiz: Quiz = {
-              ...quizMeta,
-              questions,
-              createdAt: new Date(quizMeta.createdAt)
-            };
-            
-            // Check if we have a saved state
-            const state = dismissedQuizzes[quizId];
-            if (state && !state.completed) {
-              // Resume from saved state
-              setCurrentQuestionIndex(state.currentQuestionIndex);
-              setScore(state.score);
-            } else {
-              // Start from beginning
-              setCurrentQuestionIndex(0);
-              setScore(0);
-            }
-            
-            setSelectedAnswer(null);
-            setAnswerSubmitted(false);
-            setCurrentQuiz(quiz);
-            setQuizGenerated(true);
-            setShowQuizSelection(false);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error loading saved quiz:', error);
-      Alert.alert('Error', 'Failed to load quiz');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  // Generate a new quiz from document content
+  // Simplify generateQuiz function and remove storage
   const generateQuiz = async () => {
     if (!documentUri) {
       Alert.alert('Error', 'Document URI is missing');
@@ -478,29 +281,10 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
             documentUri
           };
           
-          // Save to AsyncStorage more efficiently by chunking the questions
-          try {
-            await saveQuizToStorage(quiz);
-            
-            // Set current quiz and show it immediately
-            setCurrentQuiz(quiz);
-            setQuizGenerated(true);
-            setCurrentQuestionIndex(0);
-          } catch (storageError) {
-            console.error('Error saving quiz to storage:', storageError);
-            
-            // Even if storage fails, still allow the user to take the quiz
-            setCurrentQuiz(quiz);
-            setQuizGenerated(true);
-            setCurrentQuestionIndex(0);
-            
-            // Inform the user their quiz won't be saved
-            Alert.alert(
-              'Storage Error',
-              'We couldn\'t save this quiz for later, but you can still take it now.',
-              [{ text: 'OK' }]
-            );
-          }
+          // Set current quiz and show it immediately
+          setCurrentQuiz(quiz);
+          setQuizGenerated(true);
+          setCurrentQuestionIndex(0);
         } else {
           throw new Error('No questions could be generated or parsed');
         }
@@ -516,35 +300,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     }
   };
   
-  // Save quiz data to storage in a more efficient way
-  const saveQuizToStorage = async (quiz: Quiz): Promise<void> => {
-    try {
-      // Get the quiz index (list of quiz metadata without questions)
-      const indexKey = 'quiz_index';
-      const existingIndexStr = await AsyncStorage.getItem(indexKey);
-      const quizIndex: Omit<Quiz, 'questions'>[] = existingIndexStr ? JSON.parse(existingIndexStr) : [];
-      
-      // Create quiz metadata (without questions)
-      const quizMeta = {
-        id: quiz.id,
-        title: quiz.title,
-        createdAt: quiz.createdAt,
-        documentUri: quiz.documentUri
-      };
-      
-      // Update the index with this new quiz
-      const updatedIndex = [quizMeta, ...quizIndex];
-      await AsyncStorage.setItem(indexKey, JSON.stringify(updatedIndex));
-      
-      // Save the questions separately to avoid the CursorWindow size limit
-      await AsyncStorage.setItem(`quiz_${quiz.id}`, JSON.stringify(quiz.questions));
-      
-    } catch (error) {
-      console.error('Error in saveQuizToStorage:', error);
-      throw error;
-    }
-  };
-
   // Helper function to clean up the response for better JSON parsing
   const cleanJsonResponse = (text: string): string => {
     // Remove any text before the first [
@@ -574,50 +329,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     return cleaned;
   };
 
-  // Select a quiz to resume or restart
-  const selectQuiz = (quiz: Quiz) => {
-    Alert.alert(
-      'Quiz Options',
-      `What would you like to do with "${quiz.title}"?`,
-      [
-        { 
-          text: 'Resume Quiz', 
-          onPress: () => loadSavedQuiz(quiz.id)
-        },
-        {
-          text: 'Start Over',
-          onPress: () => {
-            // Reset the state and load the quiz
-            const resetState = async () => {
-              try {
-                // Remove from dismissed states if it exists
-                if (dismissedQuizzes[quiz.id]) {
-                  const newStates = { ...dismissedQuizzes };
-                  delete newStates[quiz.id];
-                  setDismissedQuizzes(newStates);
-                  
-                  // Update AsyncStorage
-                  await AsyncStorage.setItem(QUIZ_STATES_KEY, JSON.stringify(newStates));
-                }
-                
-                // Load the quiz from beginning
-                loadSavedQuiz(quiz.id);
-              } catch (error) {
-                console.error('Error resetting quiz state:', error);
-              }
-            };
-            
-            resetState();
-          }
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        }
-      ]
-    );
-  };
-
   // Calculate container position based on keyboard
   const chatContainerStyle = {
     bottom: keyboardVisible ? keyboardHeight - 50 : 30,
@@ -625,88 +336,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
 
   if (!visible) return null;
   
-  // Show quiz selection screen
-  if (showQuizSelection) {
-    return (
-      <Animated.View 
-        style={[
-          styles.quizWindow,
-          {
-            opacity: opacity,
-            transform: [{ translateY: translateY }]
-          }
-        ]}
-      >
-        <SafeAreaView style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Quizzes</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButtonContainer}>
-              <Text style={styles.closeButton}>×</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView 
-            style={styles.scrollContainer}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={true}
-          >
-            <TouchableOpacity 
-              style={styles.newQuizButton}
-              onPress={() => setShowQuizSelection(false)} // Go back to the quiz generator
-            >
-              <View style={styles.newQuizIconContainer}>
-                <GenerateIcon color="#ffffff" />
-              </View>
-              <Text style={styles.newQuizButtonText}>Create New Quiz</Text>
-            </TouchableOpacity>
-            
-            {savedQuizzes.length > 0 ? (
-              <>
-                <Text style={styles.savedQuizzesTitle}>Saved Quizzes</Text>
-                {savedQuizzes.map((quiz) => {
-                  const quizState = dismissedQuizzes[quiz.id];
-                  const isDismissed = quizState?.dismissed;
-                  
-                  return (
-                    <TouchableOpacity 
-                      key={quiz.id}
-                      style={[
-                        styles.savedQuizItem,
-                        isDismissed && styles.dismissedQuizItem
-                      ]}
-                      onPress={() => selectQuiz(quiz)}
-                    >
-                      <View style={styles.quizIconSmall}>
-                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#EC4899" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                          <Path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22Z" />
-                          {isDismissed ? (
-                            <Path d="M9 9l6 6M15 9l-6 6" />
-                          ) : (
-                            <Path d="M8 12l3 3l6-6" />
-                          )}
-                        </Svg>
-                      </View>
-                      <View style={styles.savedQuizInfo}>
-                        <Text style={styles.savedQuizTitle}>{quiz.title}</Text>
-                        <Text style={styles.savedQuizMeta}>
-                          {isDismissed ? 'Paused - Tap to resume' : 'Ready to start'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </>
-            ) : (
-              <View style={styles.noSavedQuizzes}>
-                <Text style={styles.noSavedQuizzesText}>No saved quizzes found</Text>
-              </View>
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </Animated.View>
-    );
-  }
-
   // Render quiz question view if a quiz has been generated
   if (quizGenerated && currentQuiz) {
     const currentQuestion = currentQuiz.questions[currentQuestionIndex];
@@ -839,14 +468,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Generate Quiz</Text>
-          {savedQuizzes.length > 0 && (
-            <TouchableOpacity 
-              style={styles.showSavedButton}
-              onPress={() => setShowQuizSelection(true)}
-            >
-              <Text style={styles.showSavedButtonText}>Saved Quizzes</Text>
-            </TouchableOpacity>
-          )}
           <TouchableOpacity onPress={onClose} style={styles.closeButtonContainer}>
             <Text style={styles.closeButton}>×</Text>
           </TouchableOpacity>
@@ -1275,89 +896,6 @@ const styles = StyleSheet.create({
     color: '#4b5563',
     fontSize: 16,
     fontWeight: '500',
-  },
-  savedQuizzesTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4b5563',
-    marginBottom: 12,
-    marginTop: 20,
-  },
-  savedQuizItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  dismissedQuizItem: {
-    borderColor: '#fbcfe8',
-    backgroundColor: '#fdf2f8',
-  },
-  quizIconSmall: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  savedQuizInfo: {
-    flex: 1,
-  },
-  savedQuizTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4b5563',
-    marginBottom: 4,
-  },
-  savedQuizMeta: {
-    fontSize: 14,
-    color: '#9ca3af',
-  },
-  noSavedQuizzes: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noSavedQuizzesText: {
-    fontSize: 16,
-    color: '#9ca3af',
-    textAlign: 'center',
-  },
-  newQuizButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EC4899',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-  },
-  newQuizIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  newQuizButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  showSavedButton: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  showSavedButtonText: {
-    fontSize: 14,
-    color: '#8B5CF6',
   },
 });
 
