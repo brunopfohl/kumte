@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, TextInput } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, TextInput, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -77,6 +77,63 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   const [chatVisible, setChatVisible] = useState(false);
   const [inputText, setInputText] = useState('');
   const chatAnimValue = useRef(new Animated.Value(0)).current;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Listen to keyboard events
+  useEffect(() => {
+    let keyboardWillShowListener: EmitterSubscription;
+    let keyboardWillHideListener: EmitterSubscription;
+    let keyboardDidShowListener: EmitterSubscription;
+    let keyboardDidHideListener: EmitterSubscription;
+
+    if (Platform.OS === 'ios') {
+      keyboardWillShowListener = Keyboard.addListener(
+        'keyboardWillShow',
+        (e: KeyboardEvent) => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setKeyboardHeight(e.endCoordinates.height);
+          setKeyboardVisible(true);
+        }
+      );
+      
+      keyboardWillHideListener = Keyboard.addListener(
+        'keyboardWillHide',
+        () => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setKeyboardHeight(0);
+          setKeyboardVisible(false);
+        }
+      );
+    } else {
+      keyboardDidShowListener = Keyboard.addListener(
+        'keyboardDidShow',
+        (e: KeyboardEvent) => {
+          setKeyboardHeight(e.endCoordinates.height);
+          setKeyboardVisible(true);
+        }
+      );
+      
+      keyboardDidHideListener = Keyboard.addListener(
+        'keyboardDidHide',
+        () => {
+          setKeyboardHeight(0);
+          setKeyboardVisible(false);
+        }
+      );
+    }
+
+    // Clean up listeners
+    return () => {
+      if (Platform.OS === 'ios') {
+        keyboardWillShowListener?.remove();
+        keyboardWillHideListener?.remove();
+      } else {
+        keyboardDidShowListener?.remove();
+        keyboardDidHideListener?.remove();
+      }
+    };
+  }, []);
 
   const handlePreviousPage = () => {
     viewerRef.current?.goToPreviousPage();
@@ -98,11 +155,23 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
         useNativeDriver: false
       }).start();
       
+      // If we're closing the chat and keyboard is visible, dismiss it
+      if (chatVisible && keyboardVisible) {
+        Keyboard.dismiss();
+      }
+      
       // Notify parent component
       if (onAIExplain) {
         onAIExplain(selectedText);
       }
     }
+  };
+
+  const handleSendPress = () => {
+    // Future implementation: send message to LLM
+    console.log('Message to send:', inputText);
+    setInputText('');
+    Keyboard.dismiss();
   };
 
   // Define colors based on state
@@ -120,61 +189,76 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
     outputRange: [0, 1]
   });
 
+  // Calculate chat container position based on keyboard
+  const chatContainerStyle = {
+    bottom: keyboardVisible ? keyboardHeight - 50 : 30,
+  };
+
+  const toolbarContainerStyle = {
+    opacity: keyboardVisible ? 0 : 1,
+    transform: [{ translateY: keyboardVisible ? 100 : 0 }]
+  };
+
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, chatContainerStyle]}>
       {/* Chat Window */}
-      <Animated.View 
-        style={[
-          styles.chatWindow,
-          {
-            opacity: chatOpacity,
-            transform: [{ translateY: chatTranslateY }]
-          }
-        ]}
-      >
-        <View style={styles.chatHeader}>
-          <Text style={styles.chatTitle}>AI Analysis</Text>
-          <TouchableOpacity onPress={handleAIExplain}>
-            <Text style={styles.closeButton}>×</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.selectedTextContainer}>
-          <Text style={styles.selectedTextLabel}>SELECTED TEXT</Text>
-          <Text style={styles.selectedTextContent} numberOfLines={2}>
-            {selectedText}
-          </Text>
-        </View>
-        
-        <View style={styles.messageArea}>
-          <Text style={styles.messagePlaceholder}>
-            AI response will appear here...
-          </Text>
-        </View>
-        
-        <View style={styles.chatInputContainer}>
-          <TextInput
-            style={styles.chatInput}
-            placeholder="Ask a follow-up question..."
-            value={inputText}
-            onChangeText={setInputText}
-          />
-          <TouchableOpacity 
-            style={styles.sendButton}
-            disabled={inputText.trim().length === 0}
-          >
-            <Text style={[
-              styles.sendButtonText,
-              inputText.trim().length === 0 && styles.sendButtonDisabled
-            ]}>
-              Send
+      {chatVisible && (
+        <Animated.View 
+          style={[
+            styles.chatWindow,
+            {
+              opacity: chatOpacity,
+              transform: [{ translateY: chatTranslateY }]
+            }
+          ]}
+        >
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatTitle}>AI Analysis</Text>
+            <TouchableOpacity onPress={handleAIExplain}>
+              <Text style={styles.closeButton}>×</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.selectedTextContainer}>
+            <Text style={styles.selectedTextLabel}>SELECTED TEXT</Text>
+            <Text style={styles.selectedTextContent} numberOfLines={2}>
+              {selectedText}
             </Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
+          </View>
+          
+          <View style={styles.messageArea}>
+            <Text style={styles.messagePlaceholder}>
+              AI response will appear here...
+            </Text>
+          </View>
+          
+          <View style={styles.chatInputContainer}>
+            <TextInput
+              style={styles.chatInput}
+              placeholder="Ask a follow-up question..."
+              value={inputText}
+              onChangeText={setInputText}
+              returnKeyType="send"
+              onSubmitEditing={handleSendPress}
+            />
+            <TouchableOpacity 
+              style={styles.sendButton}
+              disabled={inputText.trim().length === 0}
+              onPress={handleSendPress}
+            >
+              <Text style={[
+                styles.sendButtonText,
+                inputText.trim().length === 0 && styles.sendButtonDisabled
+              ]}>
+                Send
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
 
       {/* Toolbar */}
-      <View style={styles.toolbarContainer}>
+      <Animated.View style={[styles.toolbarContainer, toolbarContainerStyle]}>
         {/* Pagination */}
         <TouchableOpacity
           style={styles.iconButton}
@@ -221,7 +305,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
             Analyze Text
           </Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -231,7 +315,6 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: 'transparent',
     position: 'absolute',
-    bottom: 80,
     left: 0,
     right: 0,
     zIndex: 100,
@@ -311,6 +394,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     overflow: 'hidden',
+    maxHeight: 400,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -346,6 +430,7 @@ const styles = StyleSheet.create({
   selectedTextContainer: {
     padding: 16,
     backgroundColor: '#f9fafb',
+    maxHeight: 100,
   },
   selectedTextLabel: {
     fontSize: 12,
@@ -361,7 +446,8 @@ const styles = StyleSheet.create({
   },
   messageArea: {
     padding: 16,
-    minHeight: 100,
+    minHeight: 80,
+    maxHeight: 200,
   },
   messagePlaceholder: {
     fontSize: 14,
