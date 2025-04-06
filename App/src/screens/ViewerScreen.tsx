@@ -8,6 +8,7 @@ import ImageViewer from 'react-native-image-zoom-viewer';
 import { DocumentService } from '../services/DocumentService';
 import { FileService, Document } from '../services/FileService';
 import PdfViewerWithControls from '../components/PdfViewerWithControls';
+import LanguageSelector, { Language } from '../components/LanguageSelector';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,6 +45,7 @@ export const ViewerScreen = () => {
   const [pdfPages, setPdfPages] = useState(0);
   const [showDebug, setShowDebug] = useState(false);
   const [selectedText, setSelectedText] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState<Language | null>(null);
   
   const [fileInfo, setFileInfo] = useState<FileInfo>({
     exists: false,
@@ -504,6 +506,11 @@ export const ViewerScreen = () => {
     }));
   };
 
+  const handleLanguageChange = (language: Language) => {
+    setSelectedLanguage(language);
+    // The language selection is saved by the LanguageSelector component
+  };
+
   // Handle PDF loaded event
   const handlePdfLoaded = (pageCount: number) => {
     console.log('PDF loaded with', pageCount, 'pages');
@@ -642,36 +649,19 @@ export const ViewerScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
+        <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
-          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
         >
-          <Text style={styles.backButtonText}>←</Text>
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.titleContainer}
-          onPress={() => {
-            // Show full title in alert if it's truncated
-            const fullTitle = getDocumentTitle();
-            if (fullTitle.length > 30) {
-              Alert.alert('Document Title', fullTitle);
-            }
-          }}
-        >
-          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-            {getDocumentTitle()}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.headerRight}
-          onPress={toggleDebugPanel}
-          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-        >
-          <Text style={styles.optionsButtonText}>⋮</Text>
-        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={1}>
+          {getDocumentTitle()}
+        </Text>
+        <LanguageSelector 
+          onLanguageChange={handleLanguageChange}
+          buttonStyle={styles.languageButton}
+        />
       </View>
 
       <View style={styles.contentContainer}>
@@ -717,40 +707,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
     paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-    backgroundColor: '#fff',
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  backButtonText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  titleContainer: {
-    flex: 1,
-    marginHorizontal: 8,
+    borderBottomColor: '#e5e7eb',
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#111827',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
-  headerRight: {
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  optionsButtonText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+  backButtonText: {
+    color: '#8B5CF6',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  languageButton: {
+    height: 36,
+    paddingHorizontal: 8,
   },
   contentContainer: {
     flex: 1,

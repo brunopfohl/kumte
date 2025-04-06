@@ -218,6 +218,8 @@ export class GeminiController {
           analysis
         }
       });
+
+      console.log('Analysis:', analysis);
     } catch (error) {
       console.error('Error in analyzeText controller:', error);
       res.status(500).json({
@@ -259,6 +261,8 @@ export class GeminiController {
         instructions,
         language
       );
+
+      console.log('Analysis:', analysis);
       
       // Send response
       res.status(200).json({

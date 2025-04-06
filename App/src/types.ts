@@ -8,8 +8,12 @@ export type RootStackParamList = {
     uri: string;
     type: 'pdf' | 'image';
   };
+  Quiz: {
+    quizId: string;
+  };
 };
 
 export type LibraryScreenProps = NativeStackScreenProps<RootStackParamList, 'Library'>;
 export type CameraScreenProps = NativeStackScreenProps<RootStackParamList, 'Camera'>;
-export type ViewerScreenProps = NativeStackScreenProps<RootStackParamList, 'Viewer'>; 
+export type ViewerScreenProps = NativeStackScreenProps<RootStackParamList, 'Viewer'>;
+export type QuizScreenProps = NativeStackScreenProps<RootStackParamList, 'Quiz'>; 

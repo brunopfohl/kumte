@@ -12,6 +12,7 @@ import { RootStackParamList } from './src/types';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { ViewerScreen } from './src/screens/ViewerScreen';
+import QuizScreen from './src/screens/QuizScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -31,6 +32,10 @@ export default function App() {
           <Stack.Screen 
             name="Viewer" 
             component={ViewerScreen}
+          />
+          <Stack.Screen 
+            name="Quiz" 
+            component={QuizScreen}
           />
         </>
       } />

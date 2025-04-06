@@ -23,6 +23,8 @@ import { DocumentService } from '../services/DocumentService';
 import { Document } from '../services/FileService';
 import Svg, { Path } from 'react-native-svg';
 import Markdown from 'react-native-markdown-display';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEY, LANGUAGES } from './LanguageSelector';
 
 // Send Icon component
 const SendIcon = ({ color = "currentColor" }: { color?: string }) => (
@@ -73,19 +75,6 @@ type Language = {
   code: string;
   name: string;
 };
-
-const LANGUAGES: Language[] = [
-  { code: 'en', name: 'English' },
-  { code: 'cs', name: 'Czech' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'fr', name: 'French' },
-  { code: 'de', name: 'German' },
-  { code: 'it', name: 'Italian' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'ru', name: 'Russian' },
-  { code: 'zh', name: 'Chinese' },
-  { code: 'ja', name: 'Japanese' },
-];
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -311,7 +300,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentQuery, setCurrentQuery] = useState<string>('');
-  const [currentLanguage, setCurrentLanguage] = useState<Language>(LANGUAGES[0]);
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(LANGUAGES[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   const translateY = animValue.interpolate({
@@ -330,14 +319,33 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       extractKeywords(selectedText);
       setCurrentQuery('Initial analysis');
     }
-  }, [visible, selectedText, currentLanguage.code]);
+  }, [visible, selectedText, selectedLanguage.code]);
   
   useEffect(() => {
-    if (visible && currentLanguage) {
+    if (visible && selectedLanguage) {
       analyzeWithGemini(selectedText);
       extractKeywords(selectedText);
     }
-  }, [currentLanguage.code]);
+  }, [selectedLanguage.code]);
+
+  // Load the selected language from AsyncStorage
+  useEffect(() => {
+    const loadLanguage = async () => {
+      try {
+        const savedLanguageCode = await AsyncStorage.getItem(STORAGE_KEY);
+        if (savedLanguageCode) {
+          const language = LANGUAGES.find(lang => lang.code === savedLanguageCode);
+          if (language) {
+            setSelectedLanguage(language);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading language preference:', error);
+      }
+    };
+
+    loadLanguage();
+  }, [visible]); // Reload whenever panel becomes visible
 
   const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
     setGeminiLoading(true);
@@ -352,7 +360,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
-      const langToUse = currentLanguage;
+      const langToUse = selectedLanguage;
       
       const languageInstruction = langToUse.code !== 'en' 
         ? `Please provide your answer in ${langToUse.name} (${langToUse.code}).` 
@@ -397,7 +405,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
-      const langToUse = currentLanguage;
+      const langToUse = selectedLanguage;
       
       const languageInstruction = langToUse.code !== 'en' 
         ? `Extract and generate the keywords in ${langToUse.name} (${langToUse.code}).` 
@@ -472,7 +480,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   // Handle language change
   const handleLanguageChange = (language: Language) => {
     console.log(`Language changed to: ${language.name} (${language.code})`);
-    setCurrentLanguage(language);
+    setSelectedLanguage(language);
     setShowLanguageDropdown(false);
     
     if (visible && selectedText) {
@@ -508,7 +516,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                 style={styles.languageSelector}
                 onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
               >
-                <Text style={styles.languageText}>{currentLanguage.name}</Text>
+                <Text style={styles.languageText}>{selectedLanguage.name}</Text>
                 <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth={2}>
                   <Path d={showLanguageDropdown ? "M18 15l-6-6-6 6" : "M6 9l6 6 6-6"} />
                 </Svg>
@@ -522,14 +530,14 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                         key={language.code}
                         style={[
                           styles.languageOption,
-                          language.code === currentLanguage.code && styles.selectedLanguageOption
+                          language.code === selectedLanguage.code && styles.selectedLanguageOption
                         ]}
                         onPress={() => handleLanguageChange(language)}
                       >
                         <Text 
                           style={[
                             styles.languageOptionText,
-                            language.code === currentLanguage.code && styles.selectedLanguageOptionText
+                            language.code === selectedLanguage.code && styles.selectedLanguageOptionText
                           ]}
                         >
                           {language.name}
@@ -643,15 +651,15 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             
             <View style={styles.chatInputContainer}>
               <View style={styles.inputWrapper}>
-                {currentLanguage.code !== 'en' && (
+                {selectedLanguage.code !== 'en' && (
                   <View style={styles.languageIndicator}>
-                    <Text style={styles.languageIndicatorText}>{currentLanguage.code}</Text>
+                    <Text style={styles.languageIndicatorText}>{selectedLanguage.code}</Text>
                   </View>
                 )}
                 <TextInput
                   style={[
                     styles.chatInput,
-                    currentLanguage.code !== 'en' && { paddingLeft: 40 }
+                    selectedLanguage.code !== 'en' && { paddingLeft: 40 }
                   ]}
                   placeholder="Type a message..."
                   placeholderTextColor="#9ca3af"

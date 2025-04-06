@@ -16,7 +16,9 @@ export type IconType =
   | 'svg'
   | 'tex'
   | 'search'
-  | 'clock';
+  | 'clock'
+  | 'quiz'
+  | 'question';
 
 interface IconProps extends SvgProps {
   size?: number;
@@ -164,6 +166,24 @@ export const Icon: React.FC<IconProps & { name: IconType }> = ({
         <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
         <Path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
         <Path d="M12 7v5l3 3" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    quiz: (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M3.5 5.5l1.5 1.5l2.5 -2.5" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M3.5 11.5l1.5 1.5l2.5 -2.5" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M3.5 17.5l1.5 1.5l2.5 -2.5" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M11 6l9 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M11 12l9 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M11 18l9 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    question: (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M8 8a3.5 3 0 0 1 3.5 -3h1a3.5 3 0 0 1 0 7h-.5h-1a3.5 3 0 0 0 -3 3v1" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M12 19v.01" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
       </Svg>
     ),
   };

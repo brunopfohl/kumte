@@ -21,6 +21,7 @@ import { DocumentService } from '../services/DocumentService';
 import { Document } from '../services/FileService';
 import Svg, { Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LANGUAGES, STORAGE_KEY, Language } from './LanguageSelector';
 
 // Generate Icon component
 const GenerateIcon = ({ color = "currentColor" }: { color?: string }) => (
@@ -85,6 +86,32 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
   const [includeMultipleChoice, setIncludeMultipleChoice] = useState(true);
   const [includeTrueFalse, setIncludeTrueFalse] = useState(true);
   const [difficultyLevel, setDifficultyLevel] = useState(2); // 1-easy, 2-medium, 3-hard
+  const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
+  const [quizGenerated, setQuizGenerated] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [answerSubmitted, setAnswerSubmitted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(LANGUAGES[0]);
+
+  // Load the selected language from AsyncStorage
+  useEffect(() => {
+    const loadLanguage = async () => {
+      try {
+        const savedLanguageCode = await AsyncStorage.getItem(STORAGE_KEY);
+        if (savedLanguageCode) {
+          const language = LANGUAGES.find(lang => lang.code === savedLanguageCode);
+          if (language) {
+            setSelectedLanguage(language);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading language preference:', error);
+      }
+    };
+
+    loadLanguage();
+  }, [visible]); // Reload whenever panel becomes visible
 
   const translateY = animValue.interpolate({
     inputRange: [0, 1],
@@ -96,6 +123,54 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     outputRange: [0, 1]
   });
 
+  const resetQuiz = () => {
+    setQuizGenerated(false);
+    setCurrentQuiz(null);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setAnswerSubmitted(false);
+    setScore(0);
+  };
+
+  const handleAnswerSelect = (index: number) => {
+    if (!answerSubmitted) {
+      setSelectedAnswer(index);
+    }
+  };
+
+  const handleSubmitAnswer = () => {
+    if (selectedAnswer === null || !currentQuiz) return;
+    
+    const currentQuestion = currentQuiz.questions[currentQuestionIndex];
+    const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+    
+    if (isCorrect) {
+      setScore(prevScore => prevScore + 1);
+    }
+    
+    setAnswerSubmitted(true);
+  };
+
+  const handleNextQuestion = () => {
+    if (!currentQuiz) return;
+    
+    if (currentQuestionIndex < currentQuiz.questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedAnswer(null);
+      setAnswerSubmitted(false);
+    } else {
+      // Quiz completed, show result
+      Alert.alert(
+        'Quiz Completed!',
+        `Your score: ${score}/${currentQuiz.questions.length}`,
+        [
+          { text: 'Try Again', onPress: resetQuiz },
+          { text: 'Back to PDF', onPress: onClose }
+        ]
+      );
+    }
+  };
+
   const generateQuiz = async () => {
     if (!documentUri) {
       Alert.alert('Error', 'Document URI is missing');
@@ -103,6 +178,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     }
 
     setGenerating(true);
+    resetQuiz();
 
     try {
       const doc: Document = {
@@ -133,22 +209,30 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
         ? `Here is the text to analyze: "${selectedText}"` 
         : 'No text is selected. Generate questions from the entire document instead.';
 
+      // Add language instruction
+      const languageInstruction = selectedLanguage.code !== 'en'
+        ? `Generate the quiz in ${selectedLanguage.name}. Both questions and answers should be in ${selectedLanguage.name}.`
+        : '';
+
       const instruction = `
         Create a quiz with ${numberOfQuestions} questions based on the provided content.
         ${additionalPrompt ? `Additional instructions: ${additionalPrompt}` : ''}
         
         The questions should be ${difficultyMap[difficultyLevel as keyof typeof difficultyMap]} difficulty.
         Include these question types: ${questionTypes.join(', ')}.
+        ${languageInstruction}
         
         Format the output as a valid JSON array that can be parsed. Each question object should have:
-        - "id": unique identifier string
-        - "question": the full question text
+        - "id": unique string (use just numbers 1, 2, 3...)
+        - "question": the full question text (concise)
         - "options": array of possible answers (4 options for multiple choice, 2 for true/false)
         - "correctAnswer": index of the correct answer (0-based)
-        - "explanation": brief explanation of why the answer is correct
+        - "explanation": brief explanation of why the answer is correct (keep this short)
         
+        Keep all text as concise as possible while maintaining accuracy.
         Make sure all questions are clear, accurate, and based on the provided content.
         Only return the JSON array, no other text.
+        Escape all special characters properly to ensure valid JSON.
         
         ${textToAnalyze}
       `;
@@ -157,48 +241,69 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
       const response = await DocumentService.analyzeDocumentWithGemini(doc, instruction);
       
       try {
-        const jsonStart = response.indexOf('[');
-        const jsonEnd = response.lastIndexOf(']') + 1;
+        // Clean up the response to ensure it's valid JSON
+        const cleanResponse = cleanJsonResponse(response);
         
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-          const jsonStr = response.substring(jsonStart, jsonEnd);
-          const parsedQuestions = JSON.parse(jsonStr) as Question[];
+        let parsedQuestions: Question[] = [];
+        try {
+          // First attempt: try parsing the full response
+          parsedQuestions = JSON.parse(cleanResponse) as Question[];
+        } catch (parseError) {
+          console.log('First parsing attempt failed, trying to extract JSON array:', parseError);
           
-          if (parsedQuestions.length > 0) {
-            // Create a new quiz
-            const quiz: Quiz = {
-              id: `quiz-${Date.now()}`,
-              title: selectedText ? 'Quiz on Selected Text' : 'Quiz on Document',
-              questions: parsedQuestions,
-              createdAt: new Date(),
-              documentUri
-            };
-            
-            // Save to AsyncStorage
-            const existingQuizzesStr = await AsyncStorage.getItem('quizzes');
-            const existingQuizzes: Quiz[] = existingQuizzesStr ? JSON.parse(existingQuizzesStr) : [];
-            const updatedQuizzes = [quiz, ...existingQuizzes];
-            await AsyncStorage.setItem('quizzes', JSON.stringify(updatedQuizzes));
-            
-            // Navigate to quiz screen (you'll need to implement this)
-            // For now, just alert
-            Alert.alert(
-              'Quiz Generated!', 
-              `Created a quiz with ${parsedQuestions.length} questions. You can find it in your quizzes.`,
-              [
-                { text: 'OK', onPress: () => onClose() }
-              ]
-            );
+          // Second attempt: try to extract the JSON array using regex
+          const jsonStart = cleanResponse.indexOf('[');
+          const jsonEnd = cleanResponse.lastIndexOf(']') + 1;
+          
+          if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            const jsonStr = cleanResponse.substring(jsonStart, jsonEnd);
+            parsedQuestions = JSON.parse(jsonStr) as Question[];
           } else {
-            Alert.alert('Error', 'No questions could be generated. Try with different settings.');
+            throw new Error('Could not find JSON array in response');
+          }
+        }
+        
+        if (parsedQuestions && parsedQuestions.length > 0) {
+          // Create a new quiz
+          const quizId = `quiz-${Date.now()}`;
+          const quizTitle = selectedText ? 'Quiz on Selected Text' : 'Quiz on Document';
+          const quiz: Quiz = {
+            id: quizId,
+            title: quizTitle,
+            questions: parsedQuestions,
+            createdAt: new Date(),
+            documentUri
+          };
+          
+          // Save to AsyncStorage more efficiently by chunking the questions
+          try {
+            await saveQuizToStorage(quiz);
+            
+            // Set current quiz and show it immediately
+            setCurrentQuiz(quiz);
+            setQuizGenerated(true);
+            setCurrentQuestionIndex(0);
+          } catch (storageError) {
+            console.error('Error saving quiz to storage:', storageError);
+            
+            // Even if storage fails, still allow the user to take the quiz
+            setCurrentQuiz(quiz);
+            setQuizGenerated(true);
+            setCurrentQuestionIndex(0);
+            
+            // Inform the user their quiz won't be saved
+            Alert.alert(
+              'Storage Error',
+              'We couldn\'t save this quiz for later, but you can still take it now.',
+              [{ text: 'OK' }]
+            );
           }
         } else {
-          console.error('Could not find JSON in response:', response);
-          Alert.alert('Error', 'Failed to parse quiz questions. Please try again.');
+          throw new Error('No questions could be generated or parsed');
         }
       } catch (parseError) {
-        console.error('Error parsing quiz JSON:', parseError);
-        Alert.alert('Error', 'Failed to parse quiz data. Please try again.');
+        console.error('Error parsing quiz JSON:', parseError, 'Response:', response);
+        Alert.alert('Error', 'Failed to parse quiz data. Please try again with a different language or shorter text.');
       }
     } catch (error) {
       console.error('Error generating quiz:', error);
@@ -206,6 +311,64 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     } finally {
       setGenerating(false);
     }
+  };
+  
+  // Save quiz data to storage in a more efficient way
+  const saveQuizToStorage = async (quiz: Quiz): Promise<void> => {
+    try {
+      // Get the quiz index (list of quiz metadata without questions)
+      const indexKey = 'quiz_index';
+      const existingIndexStr = await AsyncStorage.getItem(indexKey);
+      const quizIndex: Omit<Quiz, 'questions'>[] = existingIndexStr ? JSON.parse(existingIndexStr) : [];
+      
+      // Create quiz metadata (without questions)
+      const quizMeta = {
+        id: quiz.id,
+        title: quiz.title,
+        createdAt: quiz.createdAt,
+        documentUri: quiz.documentUri
+      };
+      
+      // Update the index with this new quiz
+      const updatedIndex = [quizMeta, ...quizIndex];
+      await AsyncStorage.setItem(indexKey, JSON.stringify(updatedIndex));
+      
+      // Save the questions separately to avoid the CursorWindow size limit
+      await AsyncStorage.setItem(`quiz_${quiz.id}`, JSON.stringify(quiz.questions));
+      
+    } catch (error) {
+      console.error('Error in saveQuizToStorage:', error);
+      throw error;
+    }
+  };
+
+  // Helper function to clean up the response for better JSON parsing
+  const cleanJsonResponse = (text: string): string => {
+    // Remove any text before the first [
+    let cleaned = text;
+    
+    // Remove any markdown code block indicators
+    cleaned = cleaned.replace(/```json/g, '').replace(/```/g, '');
+    
+    // Remove any non-JSON text before the array
+    const firstBracket = cleaned.indexOf('[');
+    if (firstBracket !== -1) {
+      cleaned = cleaned.substring(firstBracket);
+    }
+    
+    // Remove any text after the last ]
+    const lastBracket = cleaned.lastIndexOf(']');
+    if (lastBracket !== -1) {
+      cleaned = cleaned.substring(0, lastBracket + 1);
+    }
+    
+    // Fix common JSON formatting issues
+    cleaned = cleaned.replace(/(\r\n|\n|\r)/gm, ' ') // Remove line breaks
+                    .replace(/\s+/g, ' ') // Normalize whitespace
+                    .replace(/,\s*]/g, ']') // Remove trailing commas
+                    .replace(/,\s*}/g, '}'); // Remove trailing commas
+    
+    return cleaned;
   };
 
   // Calculate container position based on keyboard
@@ -215,6 +378,109 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
 
   if (!visible) return null;
 
+  // Render quiz question view if a quiz has been generated
+  if (quizGenerated && currentQuiz) {
+    const currentQuestion = currentQuiz.questions[currentQuestionIndex];
+    const isLastQuestion = currentQuestionIndex === currentQuiz.questions.length - 1;
+    
+    return (
+      <Animated.View 
+        style={[
+          styles.quizWindow,
+          {
+            opacity: opacity,
+            transform: [{ translateY: translateY }]
+          }
+        ]}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Quiz</Text>
+            <View style={styles.quizProgress}>
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { width: `${((currentQuestionIndex + 1) / currentQuiz.questions.length) * 100}%` }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {currentQuestionIndex + 1}/{currentQuiz.questions.length}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeButtonContainer}>
+              <Text style={styles.closeButton}>×</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView 
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+          >
+            <View style={styles.questionContainer}>
+              <Text style={styles.questionText}>{currentQuestion.question}</Text>
+            </View>
+            
+            <View style={styles.optionsContainer}>
+              {currentQuestion.options.map((option, index) => (
+                <TouchableOpacity 
+                  key={`option-${index}`}
+                  style={[
+                    styles.optionButton,
+                    selectedAnswer === index && styles.optionSelected,
+                    answerSubmitted && index === currentQuestion.correctAnswer && styles.optionCorrect,
+                    answerSubmitted && selectedAnswer === index && 
+                    selectedAnswer !== currentQuestion.correctAnswer && styles.optionIncorrect
+                  ]}
+                  onPress={() => handleAnswerSelect(index)}
+                  disabled={answerSubmitted}
+                >
+                  <View style={styles.optionLabelContainer}>
+                    <Text style={styles.optionLabel}>
+                      {String.fromCharCode(65 + index)}
+                    </Text>
+                  </View>
+                  <Text style={styles.optionText}>{option}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {answerSubmitted && (
+              <View style={styles.explanationContainer}>
+                <Text style={styles.explanationTitle}>Explanation:</Text>
+                <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
+              </View>
+            )}
+            
+            <View style={styles.actionButtonsContainer}>
+              {!answerSubmitted ? (
+                <TouchableOpacity 
+                  style={[styles.submitButton, selectedAnswer === null && styles.submitButtonDisabled]}
+                  onPress={handleSubmitAnswer}
+                  disabled={selectedAnswer === null}
+                >
+                  <Text style={styles.submitButtonText}>Submit Answer</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.nextButton, isLastQuestion && styles.finishButton]}
+                  onPress={handleNextQuestion}
+                >
+                  <Text style={styles.nextButtonText}>
+                    {isLastQuestion ? 'Finish Quiz' : 'Next Question'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Animated.View>
+    );
+  }
+
+  // Render quiz generator view (original view)
   return (
     <Animated.View 
       style={[
@@ -256,7 +522,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 <Slider
                   style={styles.slider}
                   minimumValue={1}
-                  maximumValue={10}
+                  maximumValue={50}
                   step={1}
                   value={numberOfQuestions}
                   onValueChange={setNumberOfQuestions}
@@ -511,6 +777,137 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  quizProgress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 12,
+  },
+  progressBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 3,
+    marginRight: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#EC4899',
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  questionContainer: {
+    backgroundColor: '#fdf2f8',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#fbcfe8',
+  },
+  questionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    lineHeight: 24,
+  },
+  optionsContainer: {
+    marginBottom: 20,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  optionSelected: {
+    borderColor: '#EC4899',
+    backgroundColor: '#fdf2f8',
+  },
+  optionCorrect: {
+    borderColor: '#10B981',
+    backgroundColor: '#ECFDF5',
+  },
+  optionIncorrect: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  optionLabelContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  optionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6b7280',
+  },
+  optionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+  },
+  explanationContainer: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+  },
+  explanationTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginBottom: 8,
+  },
+  explanationText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+  },
+  actionButtonsContainer: {
+    marginBottom: 20,
+  },
+  submitButton: {
+    backgroundColor: '#EC4899',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#f9a8d4',
+  },
+  submitButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  nextButton: {
+    backgroundColor: '#8B5CF6',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  finishButton: {
+    backgroundColor: '#10B981',
+  },
+  nextButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
