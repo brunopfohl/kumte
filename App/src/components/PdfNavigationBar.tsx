@@ -3,12 +3,14 @@ import { View, TouchableOpacity, Text, StyleSheet, Platform, Animated, Keyboard,
 import { PdfViewerMethods } from './PdfViewer';
 import Svg, { Path } from 'react-native-svg';
 import AIAnalysisPanel from './AIAnalysisPanel';
+import QuizPanel from './QuizPanel';
 
 interface PdfNavigationBarProps {
   viewerRef: React.RefObject<PdfViewerMethods | null>;
   currentPage: number;
   totalPages: number;
   onAIExplain?: (selectedText?: string) => void;
+  onQuizGenerate?: (selectedText?: string) => void;
   selectedText?: string;
   style?: any;
   documentUri: string;
@@ -46,6 +48,15 @@ const ChatIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
+// Quiz Icon component
+const QuizIcon = ({ color }: { color: string }) => (
+  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M8 16L10.8787 13.1213M10.8787 13.1213C11.4216 12.5784 11.7071 11.8284 11.7071 11.0503C11.7071 10.2722 11.4216 9.5222 10.8787 8.97934C10.3358 8.43645 9.58582 8.15096 8.8077 8.15096C8.02958 8.15096 7.27963 8.43645 6.73675 8.97934C6.19386 9.5222 5.90837 10.2722 5.90837 11.0503C5.90837 11.8284 6.19386 12.5784 6.73675 13.1213C7.27963 13.6642 8.02958 13.9497 8.8077 13.9497C9.58582 13.9497 10.3358 13.6642 10.8787 13.1213Z" />
+    <Path d="M18 16L14 8" />
+    <Path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22Z" />
+  </Svg>
+);
+
 /**
  * A navigation bar for controlling PDF viewer
  * Displays current page, allows page navigation, and shows AI explain button when text is selected
@@ -55,6 +66,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   currentPage,
   totalPages,
   onAIExplain,
+  onQuizGenerate,
   selectedText,
   style,
   documentUri,
@@ -62,6 +74,8 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
 }) => {
   const [chatVisible, setChatVisible] = useState(false);
   const chatAnimValue = useRef(new Animated.Value(0)).current;
+  const [quizVisible, setQuizVisible] = useState(false);
+  const quizAnimValue = useRef(new Animated.Value(0)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
@@ -129,31 +143,74 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   };
 
   const handleAIExplain = () => {
-      const isOpening = !chatVisible;
-      setChatVisible(isOpening);
-      
-      // Animate chat window
-      Animated.timing(chatAnimValue, {
-        toValue: chatVisible ? 0 : 1,
+    // Close quiz panel if open
+    if (quizVisible) {
+      setQuizVisible(false);
+      Animated.timing(quizAnimValue, {
+        toValue: 0,
         duration: 300,
         useNativeDriver: false
       }).start();
+    }
       
-      // If we're closing the chat and keyboard is visible, dismiss it
-      if (chatVisible && keyboardVisible) {
-        Keyboard.dismiss();
-      }
-      
-      // Notify parent component
-      if (onAIExplain) {
-        onAIExplain(selectedText);
-      }
+    const isOpening = !chatVisible;
+    setChatVisible(isOpening);
+    
+    // Animate chat window
+    Animated.timing(chatAnimValue, {
+      toValue: chatVisible ? 0 : 1,
+      duration: 300,
+      useNativeDriver: false
+    }).start();
+    
+    // If we're closing the chat and keyboard is visible, dismiss it
+    if (chatVisible && keyboardVisible) {
+      Keyboard.dismiss();
+    }
+    
+    // Notify parent component
+    if (onAIExplain) {
+      onAIExplain(selectedText);
+    }
+  };
+
+  const handleQuizGenerate = () => {
+    // Close AI panel if open
+    if (chatVisible) {
+      setChatVisible(false);
+      Animated.timing(chatAnimValue, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false
+      }).start();
+    }
+    
+    const isOpening = !quizVisible;
+    setQuizVisible(isOpening);
+    
+    // Animate quiz window
+    Animated.timing(quizAnimValue, {
+      toValue: quizVisible ? 0 : 1,
+      duration: 300,
+      useNativeDriver: false
+    }).start();
+    
+    // If we're closing the quiz and keyboard is visible, dismiss it
+    if (quizVisible && keyboardVisible) {
+      Keyboard.dismiss();
+    }
+    
+    // Notify parent component
+    if (onQuizGenerate) {
+      onQuizGenerate(selectedText);
+    }
   };
 
   // Define colors based on state
   const iconColor = "#6b7280"; // Default icon color
   const disabledColor = "#d1d5db"; // Lighter color for disabled state
   const activeColor = "#8b5cf6"; // Purple for active analyze text
+  const quizActiveColor = "#EC4899"; // Pink for active quiz
 
   // Calculate chat container position based on keyboard
   const chatContainerStyle = {
@@ -179,6 +236,18 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
         onClose={handleAIExplain}
       />
 
+      {/* QuizPanel */}
+      <QuizPanel
+        visible={quizVisible}
+        selectedText={selectedText || ''}
+        documentUri={documentUri}
+        documentType={documentType}
+        animValue={quizAnimValue}
+        keyboardHeight={keyboardHeight}
+        keyboardVisible={keyboardVisible}
+        onClose={handleQuizGenerate}
+      />
+
       {/* Toolbar */}
       <Animated.View style={[styles.toolbarContainer, toolbarContainerStyle]}>
         {/* Pagination */}
@@ -202,7 +271,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
 
         <View style={styles.separator} />
 
-        {/* Analyze Text */}
+        {/* Analyze */}
         <TouchableOpacity 
           style={styles.textButton}
           onPress={handleAIExplain}
@@ -210,9 +279,23 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           <ChatIcon color={chatVisible ? activeColor : iconColor} />
           <Text style={[
             styles.buttonText,
-            {color: chatVisible ? activeColor : (selectedText ? iconColor : iconColor)}
+            {color: chatVisible ? activeColor : iconColor}
           ]}>
             Analyze
+          </Text>
+        </TouchableOpacity>
+
+        {/* Quiz */}
+        <TouchableOpacity 
+          style={styles.textButton}
+          onPress={handleQuizGenerate}
+        >
+          <QuizIcon color={quizVisible ? quizActiveColor : iconColor} />
+          <Text style={[
+            styles.buttonText,
+            {color: quizVisible ? quizActiveColor : iconColor}
+          ]}>
+            Quiz
           </Text>
         </TouchableOpacity>
       </Animated.View>

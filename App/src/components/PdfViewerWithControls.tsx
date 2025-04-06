@@ -21,6 +21,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
   const [totalPages, setTotalPages] = useState(0);
   const [selectedText, setSelectedText] = useState<string | undefined>(undefined);
   const [aiPanelVisible, setAiPanelVisible] = useState(false);
+  const [quizPanelVisible, setQuizPanelVisible] = useState(false);
 
   const handlePdfLoaded = (pageCount: number, initialPage: number) => {
     setTotalPages(pageCount);
@@ -31,9 +32,12 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
     setCurrentPage(pageNumber);
     setTotalPages(totalPageCount);
     
-    // If page changes, hide any AI panel that might be visible
+    // If page changes, hide any panels that might be visible
     if (aiPanelVisible) {
       setAiPanelVisible(false);
+    }
+    if (quizPanelVisible) {
+      setQuizPanelVisible(false);
     }
   };
 
@@ -44,6 +48,19 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
   const handleAIExplain = (text?: string) => {
     // Toggle AI panel visibility when AI explain is requested
     setAiPanelVisible(!aiPanelVisible);
+    // Close quiz panel if open
+    if (quizPanelVisible) {
+      setQuizPanelVisible(false);
+    }
+  };
+
+  const handleQuizGenerate = (text?: string) => {
+    // Toggle Quiz panel visibility when quiz generation is requested
+    setQuizPanelVisible(!quizPanelVisible);
+    // Close AI panel if open
+    if (aiPanelVisible) {
+      setAiPanelVisible(false);
+    }
   };
 
   return (
@@ -64,6 +81,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
         totalPages={totalPages}
         selectedText={selectedText}
         onAIExplain={handleAIExplain}
+        onQuizGenerate={handleQuizGenerate}
         style={styles.navigationBar}
         documentUri={uri}
         documentType="pdf" // This component is specifically for PDFs
