@@ -2,6 +2,8 @@ import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } f
 import { View, Text, ActivityIndicator, StyleSheet, Dimensions, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
+import PdfNavigationBar from './PdfNavigationBar';
+import { apiClient } from '../services/apiClient';
 
 // Asset paths
 const HTML_PATH = Platform.OS === 'android'
@@ -54,14 +56,38 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
   hideControls = false
 }, ref) => {
   const webViewRef = useRef<WebView>(null);
+  const viewerRef = useRef<PdfViewerMethods | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [isReady, setIsReady] = useState(false);
+  // State for text selection and Gemini API
+  const [selectedText, setSelectedText] = useState<string>('');
+  const [geminiResponse, setGeminiResponse] = useState<string>('');
+  const [geminiLoading, setGeminiLoading] = useState(false);
 
-  // Expose methods to parent components via ref
-  useImperativeHandle(ref, () => ({
+  // Function to analyze text with Gemini
+  const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
+    if (!text.trim()) return;
+    
+    setGeminiLoading(true);
+    try {
+      // Use the centralized API client
+      const response = await apiClient.analyzeText(text, instruction);
+      setGeminiResponse(response);
+    } finally {
+      setGeminiLoading(false);
+    }
+  };
+
+  // Handle AI explain action from navigation bar
+  const handleAIExplain = (text: string) => {
+    analyzeWithGemini(text);
+  };
+
+  // Set up the ref methods that will be exposed to parent
+  const methods: PdfViewerMethods = {
     goToPage: (pageNumber: number) => {
       if (!isReady) return;
       const safePageNumber = Math.max(1, Math.min(pageNumber, totalPages));
@@ -131,7 +157,15 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
     },
     getCurrentPage: () => currentPage,
     getTotalPages: () => totalPages
-  }));
+  };
+
+  // Store the methods in a ref
+  useEffect(() => {
+    viewerRef.current = methods;
+  }, [isReady, currentPage, totalPages]);
+
+  // Expose methods to parent components via ref
+  useImperativeHandle(ref, () => methods);
 
   // Handle messages from WebView
   const handleWebViewMessage = (event: any) => {
@@ -169,6 +203,8 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
         }
       } else if (data.type === 'textSelected' && data.selectedText) {
         // Handle text selection
+        setSelectedText(data.selectedText);
+        
         if (onTextSelected) {
           onTextSelected(data.selectedText);
         }
@@ -326,6 +362,13 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
   return (
     <View style={styles.container}>
       {renderWebView()}
+      <PdfNavigationBar
+        viewerRef={viewerRef}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        selectedText={selectedText}
+        onAIExplain={handleAIExplain}
+      />
     </View>
   );
 });
@@ -363,7 +406,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 10,
-  },
+  }
 });
 
 export default PdfViewer;

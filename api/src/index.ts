@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { errorHandler } from './middleware/error.middleware';
+import localtunnel from 'localtunnel';
 
 // Load environment variables
 dotenv.config();
@@ -10,6 +11,8 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 const port = process.env.PORT || 3000;
+// Use a static subdomain for consistency
+const subdomain = process.env.TUNNEL_SUBDOMAIN || 'kumte-pdf-api-8749';
 
 // Middleware
 app.use(express.json());
@@ -68,6 +71,58 @@ try {
 app.use(errorHandler);
 
 // Start server
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  
+  // Setup localtunnel to expose the API
+  setupTunnel();
+});
+
+/**
+ * Setup localtunnel to expose the API to the internet
+ */
+async function setupTunnel() {
+  try {
+    const tunnel = await localtunnel({ 
+      port: Number(port),
+      subdomain: subdomain 
+    });
+    
+    console.log(`
+    ============================================
+    🌍 API available through tunnel:
+    ${tunnel.url}
+    
+    Access Gemini API at:
+    ${tunnel.url}/api/gemini
+    ============================================
+    `);
+    
+    // Handle tunnel closure
+    tunnel.on('close', () => {
+      console.log('Tunnel closed');
+      // You could attempt to reopen the tunnel here if needed
+    });
+    
+    // Handle tunnel errors
+    tunnel.on('error', (err: Error) => {
+      console.error('Tunnel error:', err);
+      console.log('Attempting to reopen tunnel in 10 seconds...');
+      setTimeout(setupTunnel, 10000);
+    });
+    
+  } catch (error) {
+    console.error('Failed to create tunnel:', error);
+    console.log('Attempting to restart tunnel in 10 seconds...');
+    setTimeout(setupTunnel, 10000);
+  }
+}
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down server...');
+  server.close(() => {
+    console.log('Server shut down');
+    process.exit(0);
+  });
 }); 

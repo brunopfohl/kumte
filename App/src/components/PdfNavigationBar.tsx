@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, TextInput, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, TextInput, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription, ActivityIndicator } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { apiClient } from '../services/apiClient';
 
 interface PdfNavigationBarProps {
   viewerRef: React.RefObject<PdfViewerMethods | null>;
@@ -79,6 +80,10 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   const chatAnimValue = useRef(new Animated.Value(0)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  
+  // Gemini API state
+  const [geminiResponse, setGeminiResponse] = useState<string>('');
+  const [geminiLoading, setGeminiLoading] = useState(false);
 
   // Listen to keyboard events
   useEffect(() => {
@@ -143,10 +148,27 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
     viewerRef.current?.goToNextPage();
   };
 
+  // Function to analyze text with Gemini
+  const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
+    if (!text?.trim()) return;
+    
+    setGeminiLoading(true);
+    setGeminiResponse('');
+    
+    try {
+      // Use the centralized API client
+      const response = await apiClient.analyzeText(text, instruction);
+      setGeminiResponse(response);
+    } finally {
+      setGeminiLoading(false);
+    }
+  };
+
   const handleAIExplain = () => {
     if (selectedText) {
       // Toggle chat window
-      setChatVisible(!chatVisible);
+      const isOpening = !chatVisible;
+      setChatVisible(isOpening);
       
       // Animate chat window
       Animated.timing(chatAnimValue, {
@@ -160,6 +182,11 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
         Keyboard.dismiss();
       }
       
+      // If opening the chat, automatically analyze with Gemini
+      if (isOpening) {
+        analyzeWithGemini(selectedText);
+      }
+      
       // Notify parent component
       if (onAIExplain) {
         onAIExplain(selectedText);
@@ -168,8 +195,10 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   };
 
   const handleSendPress = () => {
-    // Future implementation: send message to LLM
-    console.log('Message to send:', inputText);
+    if (!inputText.trim()) return;
+    
+    // Use the input text as a follow-up instruction for Gemini
+    analyzeWithGemini(selectedText || '', inputText);
     setInputText('');
     Keyboard.dismiss();
   };
@@ -227,9 +256,18 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           </View>
           
           <View style={styles.messageArea}>
-            <Text style={styles.messagePlaceholder}>
-              AI response will appear here...
-            </Text>
+            {geminiLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#8b5cf6" />
+                <Text style={styles.loadingText}>Getting analysis from Gemini...</Text>
+              </View>
+            ) : geminiResponse ? (
+              <Text style={styles.messageText}>{geminiResponse}</Text>
+            ) : (
+              <Text style={styles.messagePlaceholder}>
+                AI response will appear here...
+              </Text>
+            )}
           </View>
           
           <View style={styles.chatInputContainer}>
@@ -448,6 +486,22 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 80,
     maxHeight: 200,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginLeft: 8,
+  },
+  messageText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
   },
   messagePlaceholder: {
     fontSize: 14,
