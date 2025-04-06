@@ -368,6 +368,8 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
         totalPages={totalPages}
         selectedText={selectedText}
         onAIExplain={handleAIExplain}
+        documentUri={uri}
+        documentType="pdf"
       />
     </View>
   );

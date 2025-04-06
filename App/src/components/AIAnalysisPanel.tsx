@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { 
   View, 
   Text, 
@@ -60,6 +60,13 @@ interface Keyword {
   word: string;
   summary: string;
   relevance: number;
+}
+
+interface Message {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
 }
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -254,6 +261,20 @@ const MessageContent: React.FC<{ content: string }> = ({ content }) => {
   );
 };
 
+// Message item component to handle key prop correctly
+const MessageHistoryItem = React.memo(
+  ({message, index}: {message: Message; index: number}) => {
+    return (
+      <View style={styles.historyItem}>
+        <View style={styles.historyBadge}>
+          <Text style={styles.historyBadgeText}>Q</Text>
+        </View>
+        <Text style={styles.historyText} numberOfLines={2}>{message.text}</Text>
+      </View>
+    );
+  }
+);
+
 const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   visible,
   selectedText,
@@ -270,6 +291,8 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   const [keywords, setKeywords] = useState<Keyword[]>([]);
   const [keywordsLoading, setKeywordsLoading] = useState(false);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentQuery, setCurrentQuery] = useState<string>('');
 
   // Animation calculated values
   const translateY = animValue.interpolate({
@@ -287,6 +310,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     if (visible && selectedText) {
       analyzeWithGemini(selectedText);
       extractKeywords(selectedText);
+      setCurrentQuery('Initial analysis');
     }
   }, [visible, selectedText]);
 
@@ -312,6 +336,20 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       const response = await DocumentService.analyzeDocumentWithGemini(doc, fullInstruction);
       
       setGeminiResponse(response);
+      
+      // Save the query and response to message history if it's not the initial analysis
+      if (instruction !== "Explain this text") {
+        const newUserMessage: Message = {
+          id: `user-${Date.now()}`,
+          text: instruction,
+          isUser: true,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, newUserMessage]);
+      }
+
+      // Update current query
+      setCurrentQuery(instruction);
     } catch (error) {
       console.error('Error analyzing with Gemini:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -479,7 +517,15 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
               </View>
               
               <View style={styles.messageArea}>
-                <Text style={styles.analysisTitle}>ANALYSIS</Text>
+                <View style={styles.headerRow}>
+                  <Text style={styles.analysisTitle}>ANALYSIS</Text>
+                  {currentQuery !== "Explain this text" && (
+                    <View style={styles.queryBadge}>
+                      <Text style={styles.queryBadgeText}>{currentQuery.length > 20 ? currentQuery.substring(0, 20) + '...' : currentQuery}</Text>
+                    </View>
+                  )}
+                </View>
+                
                 {geminiLoading ? (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small" color="#8b5cf6" />
@@ -493,6 +539,26 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                   </Text>
                 )}
               </View>
+              
+              {/* Message history */}
+              {messages.length > 0 && (
+                <View style={styles.messageHistoryContainer}>
+                  <Text style={styles.messageHistoryTitle}>PREVIOUS QUERIES</Text>
+                  {messages.map((message, index) => {
+                    // Create history item element
+                    const historyItem = (
+                      <View style={styles.historyItem}>
+                        <View style={styles.historyBadge}>
+                          <Text style={styles.historyBadgeText}>Q</Text>
+                        </View>
+                        <Text style={styles.historyText} numberOfLines={2}>{message.text}</Text>
+                      </View>
+                    );
+                    // Add key separately to prevent TypeScript error
+                    return React.cloneElement(historyItem, {key: `message-${index}`});
+                  })}
+                </View>
+              )}
               
               {/* Extra space at the bottom for better scrolling */}
               <View style={styles.scrollBottomSpacer} />
@@ -714,12 +780,29 @@ const styles = StyleSheet.create({
   messageArea: {
     padding: 16,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   analysisTitle: {
     fontSize: 12,
     fontWeight: '600',
     color: '#6b7280',
-    marginBottom: 12,
-    letterSpacing: 0.5,
+    marginRight: 8,
+  },
+  queryBadge: {
+    backgroundColor: '#f5f3ff',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e9d5ff',
+  },
+  queryBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8b5cf6',
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -879,6 +962,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
+  },
+  messageHistoryContainer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  messageHistoryTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  historyItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+    backgroundColor: '#f9fafb',
+    padding: 12,
+    borderRadius: 8,
+  } as ViewStyle,
+  historyBadge: {
+    backgroundColor: '#e0e7ff',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: 10,
+  } as ViewStyle,
+  historyBadgeText: {
+    color: '#4f46e5',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  historyText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#4b5563',
   },
 });
 
