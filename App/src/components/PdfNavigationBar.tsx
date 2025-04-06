@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform, Animated, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import AIAnalysisPanel from './AIAnalysisPanel';
 
 interface PdfNavigationBarProps {
@@ -35,25 +35,6 @@ const ChevronRightIcon = ({ color }: { color: string }) => (
       clipRule="evenodd"
       fill={color}
     />
-  </Svg>
-);
-
-const ZoomOutIcon = ({ color }: { color: string }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M0 0h24v24H0z" stroke="none" fill="none" />
-    <Circle cx={10} cy={10} r={7} />
-    <Path d="M7 10h6" />
-    <Path d="M21 21l-6-6" />
-  </Svg>
-);
-
-const ZoomInIcon = ({ color }: { color: string }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M0 0h24v24H0z" stroke="none" fill="none" />
-    <Circle cx={10} cy={10} r={7} />
-    <Path d="M7 10h6" />
-    <Path d="M10 7v6" />
-    <Path d="M21 21l-6-6" />
   </Svg>
 );
 
@@ -220,17 +201,6 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           disabled={currentPage >= totalPages}
         >
           <ChevronRightIcon color={currentPage >= totalPages ? disabledColor : iconColor} />
-        </TouchableOpacity>
-
-        <View style={styles.separator} />
-
-        {/* Zoom controls */}
-        <TouchableOpacity style={styles.iconButton}>
-          <ZoomOutIcon color={iconColor} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.iconButton}>
-          <ZoomInIcon color={iconColor} />
         </TouchableOpacity>
 
         <View style={styles.separator} />

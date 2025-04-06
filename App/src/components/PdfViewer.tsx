@@ -64,27 +64,6 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
   const [isReady, setIsReady] = useState(false);
   // State for text selection and Gemini API
   const [selectedText, setSelectedText] = useState<string>('');
-  const [geminiResponse, setGeminiResponse] = useState<string>('');
-  const [geminiLoading, setGeminiLoading] = useState(false);
-
-  // Function to analyze text with Gemini
-  const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
-    if (!text.trim()) return;
-    
-    setGeminiLoading(true);
-    try {
-      // Use the centralized API client
-      const response = await apiClient.analyzeText(text, instruction);
-      setGeminiResponse(response);
-    } finally {
-      setGeminiLoading(false);
-    }
-  };
-
-  // Handle AI explain action from navigation bar
-  const handleAIExplain = (text: string) => {
-    analyzeWithGemini(text);
-  };
 
   // Set up the ref methods that will be exposed to parent
   const methods: PdfViewerMethods = {
@@ -367,7 +346,7 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
         currentPage={currentPage}
         totalPages={totalPages}
         selectedText={selectedText}
-        onAIExplain={handleAIExplain}
+        onAIExplain={() => {}}
         documentUri={uri}
         documentType="pdf"
       />

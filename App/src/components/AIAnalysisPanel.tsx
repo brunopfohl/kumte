@@ -314,7 +314,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   const [currentLanguage, setCurrentLanguage] = useState<Language>(LANGUAGES[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
-  // Animation calculated values
   const translateY = animValue.interpolate({
     inputRange: [0, 1],
     outputRange: [100, 0]
@@ -325,7 +324,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     outputRange: [0, 1]
   });
   
-  // On mount, analyze text automatically
   useEffect(() => {
     if (visible && selectedText) {
       analyzeWithGemini(selectedText);
@@ -334,16 +332,13 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     }
   }, [visible, selectedText, currentLanguage.code]);
   
-  // Reanalyze when language changes
   useEffect(() => {
     if (visible && selectedText && currentLanguage) {
-      // Always reanalyze when language changes, even if there's no response yet
       analyzeWithGemini(selectedText);
       extractKeywords(selectedText);
     }
-  }, [currentLanguage.code]); // Use code specifically to ensure proper dependency tracking
+  }, [currentLanguage.code]);
 
-  // Function to analyze text with Gemini using DocumentService
   const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
     if (!text?.trim()) return;
     
@@ -351,7 +346,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     setGeminiResponse('');
     
     try {
-      // Create a document object using the actual document that's being viewed
       const doc: Document = {
         id: `selection-${Date.now()}`,
         title: 'Current Document',
@@ -360,15 +354,12 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
-      // Get the current language at the time of API call
       const langToUse = currentLanguage;
       
-      // Add language instruction to the prompt
       const languageInstruction = langToUse.code !== 'en' 
         ? `Please provide your answer in ${langToUse.name} (${langToUse.code}).` 
         : '';
       
-      // Use DocumentService.analyzeDocumentWithGemini with the selected text as instructions
       const fullInstruction = `${instruction}\n\n${languageInstruction}\n\nHere is the text to analyze: "${text}"`;
       
       console.log(`Analyzing text with language: ${langToUse.name} (${langToUse.code})`);
@@ -376,7 +367,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       
       setGeminiResponse(response);
       
-      // Save the query and response to message history if it's not the initial analysis
       if (instruction !== "Explain this text") {
         const newUserMessage: Message = {
           id: `user-${Date.now()}`,
@@ -387,7 +377,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         setMessages(prev => [...prev, newUserMessage]);
       }
 
-      // Update current query
       setCurrentQuery(instruction);
     } catch (error) {
       console.error('Error analyzing with Gemini:', error);
@@ -398,14 +387,12 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     }
   };
 
-  // Function to extract keywords using Gemini API with structured output
   const extractKeywords = async (text: string) => {
     if (!text?.trim()) return;
     
     setKeywordsLoading(true);
     
     try {
-      // Create a document object
       const doc: Document = {
         id: `selection-${Date.now()}`,
         title: 'Current Document',
@@ -414,17 +401,14 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
-      // Get the current language at the time of API call
       const langToUse = currentLanguage;
       
-      // Add language instruction for keywords
       const languageInstruction = langToUse.code !== 'en' 
         ? `Extract and generate the keywords in ${langToUse.name} (${langToUse.code}).` 
         : '';
       
       console.log(`Extracting keywords with language: ${langToUse.name} (${langToUse.code})`);
       
-      // Instruction for Gemini to extract keywords with structured output
       const instruction = `
         Extract the top 20 most relevant keywords or key phrases from the text, and provide a brief summary for each.
         Return the results as a JSON array of objects, ordered by relevance (most relevant first).
@@ -444,7 +428,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       const response = await DocumentService.analyzeDocumentWithGemini(doc, instruction);
       
       try {
-        // Try to parse the response as JSON
         const jsonStart = response.indexOf('[');
         const jsonEnd = response.lastIndexOf(']') + 1;
         
@@ -452,7 +435,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           const jsonStr = response.substring(jsonStart, jsonEnd);
           const parsedKeywords = JSON.parse(jsonStr) as Keyword[];
           
-          // Ensure we have valid keywords
           const validKeywords = parsedKeywords.filter(k => 
             k && typeof k.word === 'string' && 
             typeof k.summary === 'string' && 
@@ -478,18 +460,15 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   const handleSendPress = () => {
     if (!inputText.trim()) return;
     
-    // Use the input text as a follow-up instruction for Gemini
     analyzeWithGemini(selectedText, inputText);
     setInputText('');
     Keyboard.dismiss();
   };
 
-  // Handle keyword selection to show details
   const handleKeywordPress = (keyword: Keyword) => {
     setSelectedKeyword(keyword);
   };
 
-  // Close the keyword detail modal
   const closeKeywordModal = () => {
     setSelectedKeyword(null);
   };
@@ -500,13 +479,10 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     setCurrentLanguage(language);
     setShowLanguageDropdown(false);
     
-    // Force refresh the analysis with the new language
     if (visible && selectedText) {
-      // Clear current response to show loading state
       setGeminiResponse('');
       setKeywords([]);
       
-      // Short timeout to ensure state updates before reanalysis
       setTimeout(() => {
         analyzeWithGemini(selectedText);
         extractKeywords(selectedText);
@@ -528,12 +504,10 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         ]}
       >
         <SafeAreaView style={styles.container}>
-          {/* Fixed Header */}
           <View style={styles.chatHeader}>
             <View style={styles.titleContainer}>
               <Text style={styles.chatTitle}>AI Analysis</Text>
               
-              {/* Language selector */}
               <TouchableOpacity 
                 style={styles.languageSelector}
                 onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
@@ -581,7 +555,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
           >
-            {/* Scrollable Content */}
             <ScrollView 
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
@@ -598,7 +571,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                 </View>
               </View>
               
-              {/* Keywords Section */}
               <View style={styles.keywordsContainer}>
                 <Text style={styles.keywordsTitle}>KEY CONCEPTS</Text>
                 {keywordsLoading ? (
@@ -653,12 +625,10 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                 )}
               </View>
               
-              {/* Message history */}
               {messages.length > 0 && (
                 <View style={styles.messageHistoryContainer}>
                   <Text style={styles.messageHistoryTitle}>PREVIOUS QUERIES</Text>
                   {messages.map((message, index) => {
-                    // Create history item element
                     const historyItem = (
                       <View style={styles.historyItem}>
                         <View style={styles.historyBadge}>
@@ -667,17 +637,14 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
                         <Text style={styles.historyText} numberOfLines={2}>{message.text}</Text>
                       </View>
                     );
-                    // Add key separately to prevent TypeScript error
                     return React.cloneElement(historyItem, {key: `message-${index}`});
                   })}
                 </View>
               )}
               
-              {/* Extra space at the bottom for better scrolling */}
               <View style={styles.scrollBottomSpacer} />
             </ScrollView>
             
-            {/* Fixed Input Area */}
             <View style={styles.chatInputContainer}>
               <View style={styles.inputWrapper}>
                 {currentLanguage.code !== 'en' && (
@@ -715,7 +682,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         </SafeAreaView>
       </Animated.View>
 
-      {/* Keyword Detail Modal */}
       <Modal
         visible={selectedKeyword !== null}
         transparent
@@ -1086,7 +1052,6 @@ const styles = StyleSheet.create({
   sendButtonTextDisabled: {
     color: '#9ca3af',
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
