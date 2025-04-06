@@ -159,7 +159,7 @@ export class GeminiController {
    */
   public async generateText(req: Request, res: Response): Promise<void> {
     try {
-      const { prompt, modelName } = req.body;
+      const { prompt, modelName, fileData } = req.body;
       
       // Validate input
       if (!prompt) {
@@ -170,7 +170,8 @@ export class GeminiController {
       // Create request object
       const request: GenerationRequest = {
         prompt,
-        modelName
+        modelName,
+        fileData
       };
       
       // Generate content
@@ -222,6 +223,55 @@ export class GeminiController {
       res.status(500).json({
         success: false,
         error: (error as Error).message || 'Failed to analyze text'
+      });
+    }
+  }
+
+  /**
+   * Analyze PDF document using Google Gemini API
+   * @param req Express request object
+   * @param res Express response object
+   */
+  public async analyzePDF(req: Request, res: Response): Promise<void> {
+    try {
+      const { pdfBase64, instructions, language } = req.body;
+      
+      // Validate input
+      if (!pdfBase64) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'PDF content is required as base64 string' 
+        });
+        return;
+      }
+      
+      if (!instructions) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Instructions for PDF analysis are required' 
+        });
+        return;
+      }
+      
+      // Analyze PDF using the service
+      const analysis = await geminiService.analyzePDF(
+        pdfBase64,
+        instructions,
+        language
+      );
+      
+      // Send response
+      res.status(200).json({
+        success: true,
+        data: {
+          analysis
+        }
+      });
+    } catch (error) {
+      console.error('Error in analyzePDF controller:', error);
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message || 'Failed to analyze PDF'
       });
     }
   }

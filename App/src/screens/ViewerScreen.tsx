@@ -6,7 +6,7 @@ import { RootStackParamList } from '../types';
 import RNFS from 'react-native-fs';
 import ImageViewer from 'react-native-image-zoom-viewer';
 import { DocumentService } from '../services/DocumentService';
-import { FileService } from '../services/FileService';
+import { FileService, Document } from '../services/FileService';
 import PdfViewerWithControls from '../components/PdfViewerWithControls';
 
 const { width, height } = Dimensions.get('window');

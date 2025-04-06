@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, TextInput, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription, ActivityIndicator } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { apiClient } from '../services/apiClient';
+import { DocumentService } from '../services/DocumentService';
+import { Document } from '../services/FileService';
 
 interface PdfNavigationBarProps {
   viewerRef: React.RefObject<PdfViewerMethods | null>;
@@ -11,6 +12,8 @@ interface PdfNavigationBarProps {
   onAIExplain?: (selectedText: string) => void;
   selectedText?: string;
   style?: any;
+  documentUri: string;
+  documentType: 'pdf' | 'image';
 }
 
 // Custom SVG icons matching the web version
@@ -73,7 +76,9 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   totalPages,
   onAIExplain,
   selectedText,
-  style
+  style,
+  documentUri,
+  documentType
 }) => {
   const [chatVisible, setChatVisible] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -148,7 +153,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
     viewerRef.current?.goToNextPage();
   };
 
-  // Function to analyze text with Gemini
+  // Function to analyze text with Gemini using DocumentService
   const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
     if (!text?.trim()) return;
     
@@ -156,9 +161,24 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
     setGeminiResponse('');
     
     try {
-      // Use the centralized API client
-      const response = await apiClient.analyzeText(text, instruction);
+      // Create a document object using the actual PDF that's being viewed
+      const doc: Document = {
+        id: `selection-${Date.now()}`,
+        title: 'Current Document',
+        type: documentType,
+        uri: documentUri,
+        date: new Date()
+      };
+      
+      // Use DocumentService.analyzeDocumentWithGemini with the selected text as instructions
+      const fullInstruction = `${instruction}\n\nHere is the text to analyze: "${text}"`;
+      const response = await DocumentService.analyzeDocumentWithGemini(doc, fullInstruction);
+      
       setGeminiResponse(response);
+    } catch (error) {
+      console.error('Error analyzing with Gemini:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setGeminiResponse(`Error analyzing text: ${errorMessage}`);
     } finally {
       setGeminiLoading(false);
     }

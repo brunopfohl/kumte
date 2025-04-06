@@ -24,4 +24,11 @@ router.post('/generate', geminiController.generateText);
  */
 router.post('/analyze', geminiController.analyzeText);
 
+/**
+ * @route POST /api/gemini/analyze-pdf
+ * @desc Analyze PDF document using Google Gemini API
+ * @access Public
+ */
+router.post('/analyze-pdf', geminiController.analyzePDF);
+
 export default router; 

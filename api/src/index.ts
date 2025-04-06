@@ -15,7 +15,8 @@ const port = process.env.PORT || 3000;
 const subdomain = process.env.TUNNEL_SUBDOMAIN || 'kumte-pdf-api-8749';
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // CORS middleware
 const corsMiddleware = ((req: Request, res: Response, next: NextFunction) => {

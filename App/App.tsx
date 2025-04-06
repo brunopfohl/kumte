@@ -12,7 +12,6 @@ import { RootStackParamList } from './src/types';
 import { LibraryScreen } from './src/screens/LibraryScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { ViewerScreen } from './src/screens/ViewerScreen';
-import { ChatScreen } from './src/screens/ChatScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -32,10 +31,6 @@ export default function App() {
           <Stack.Screen 
             name="Viewer" 
             component={ViewerScreen}
-          />
-          <Stack.Screen 
-            name="Chat" 
-            component={ChatScreen}
           />
         </>
       } />

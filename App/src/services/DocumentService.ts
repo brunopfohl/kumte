@@ -1,6 +1,7 @@
 import { Document } from './FileService';
 import RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
+import { apiClient } from './apiClient';
 
 // Cache for document URIs to avoid repeated processing
 const documentUriCache: Record<string, string> = {};
@@ -64,14 +65,24 @@ export class DocumentService {
               ? document.uri.replace('file://', '') 
               : document.uri;
             
-            // Read file as base64
-            const base64Data = await RNFS.readFile(path, 'base64');
-            const dataUri = `data:application/pdf;base64,${base64Data}`;
-            
-            // Cache the result
-            documentUriCache[cacheKey] = dataUri;
-            
-            return dataUri;
+            // Check if path is already a data URI
+            if (path.startsWith('data:application/pdf;base64,')) {
+              const base64Data = path.split(',')[1];
+              console.log('Path is already a data URI, extracted base64 data');
+              const dataUri = path; // Path is already a data URI
+              // Cache the result
+              documentUriCache[cacheKey] = dataUri;
+              return dataUri;
+            } else {
+              // Read file as base64
+              const base64Data = await RNFS.readFile(path, 'base64');
+              const dataUri = `data:application/pdf;base64,${base64Data}`;
+              
+              // Cache the result
+              documentUriCache[cacheKey] = dataUri;
+              
+              return dataUri;
+            }
           } catch (error) {
             console.error('Failed to convert document to data URI:', error);
             throw new Error(`Cannot read document: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -112,109 +123,61 @@ export class DocumentService {
   }
 
   /**
-   * Summarize document (simulated for now)
+   * Analyze document using Gemini API
+   * @param document Document to analyze
+   * @param instructions Instructions for analysis
+   * @param language Optional language code for response
    */
-  static async summarizeDocument(
-    document: Document, 
-    options: { type: 'brief' | 'detailed' | 'bullet' } = { type: 'brief' }
-  ): Promise<string> {
-    // Simulate AI summarization
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const summaries = {
-          brief: 'This document discusses key project objectives and requirements.',
-          detailed: `This document provides a comprehensive overview of the project scope, 
-          objectives, and requirements. It outlines specific tasks that need to be accomplished,
-          along with timelines and resource allocations.`,
-          bullet: `• Project objectives defined\n• Requirements documented\n• Timeline established\n• Resources allocated`,
-        };
-        
-        resolve(summaries[options.type]);
-      }, 1500);
-    });
-  }
-
-  /**
-   * Extract information from document (simulated for now)
-   */
-  static async extractInformation(
+  static async analyzeDocumentWithGemini(
     document: Document,
-    extractType: 'keyPoints' | 'dates' | 'custom' = 'keyPoints'
+    instructions: string = "Summarize this document",
+    language?: string
   ): Promise<string> {
-    // Simulate AI information extraction
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const extractions = {
-          keyPoints: `Key points extracted:\n
-          - Main argument focuses on improving efficiency
-          - Three solutions proposed
-          - Implementation timeline of 6 months
-          - Budget requirements outlined in section 3`,
-          
-          dates: `Dates found:\n
-          - Project Start: January 15, 2023
-          - Phase 1 Completion: March 30, 2023
-          - Final Deadline: June 30, 2023`,
-          
-          custom: `Custom information extraction.\n
-          In a real implementation, this would extract specific information
-          as requested by the user.`
-        };
+    try {
+      console.log('Analyzing document with Gemini:', document.id);
+      
+      // Ensure we have a valid document
+      if (!document || !document.uri) {
+        throw new Error("Invalid document");
+      }
+      
+      // For PDF documents
+      if (document.type === 'pdf') {
+        // Get document data as base64
+        let base64Data: string;
         
-        resolve(extractions[extractType]);
-      }, 1500);
-    });
-  }
-
-  /**
-   * Translate document (simulated for now)
-   */
-  static async translateDocument(
-    document: Document,
-    language: 'spanish' | 'french' | 'german' = 'spanish'
-  ): Promise<string> {
-    // Simulate AI translation
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const translations = {
-          spanish: `Este documento proporciona una visión general del alcance del proyecto,
-          los objetivos y los requisitos. Describe tareas específicas que deben realizarse,
-          junto con cronogramas y asignaciones de recursos.`,
+        // If we already have a data URI
+        if (document.dataUri && document.dataUri.startsWith('data:application/pdf;base64,')) {
+          base64Data = document.dataUri.split(',')[1];
+          console.log('Using existing data URI for Gemini analysis');
+        } else {
+          // Otherwise read the file
+          console.log('Reading document for Gemini analysis:', document.uri);
+          const path = document.uri.startsWith('file://') && Platform.OS === 'android' 
+            ? document.uri.replace('file://', '') 
+            : document.uri;
           
-          french: `Ce document fournit un aperçu complet de la portée du projet,
-          des objectifs et des exigences. Il décrit les tâches spécifiques à accomplir,
-          ainsi que les délais et les allocations de ressources.`,
-          
-          german: `Dieses Dokument bietet einen umfassenden Überblick über den Projektumfang,
-          Ziele und Anforderungen. Es beschreibt spezifische Aufgaben, die erledigt werden müssen,
-          zusammen mit Zeitplänen und Ressourcenzuweisungen.`
-        };
+          // Check if path is already a data URI
+          if (path.startsWith('data:application/pdf;base64,')) {
+            base64Data = path.split(',')[1];
+            console.log('Path is already a data URI, extracted base64 data');
+          } else {
+            base64Data = await RNFS.readFile(path, 'base64');
+            console.log('Document read successfully, length:', base64Data.length);
+          }
+        }
         
-        resolve(translations[language]);
-      }, 1500);
-    });
-  }
-
-  /**
-   * Chat about document (simulated for now)
-   */
-  static async chatWithAI(
-    document: Document, 
-    message: string
-  ): Promise<string> {
-    // Simulate AI chat response
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const responses = [
-          `Based on this document, I can tell you that the main points are about project planning and resource allocation.`,
-          `The document mentions several key dates including a project kickoff on January 15th.`,
-          `This appears to be a ${document.type === 'pdf' ? 'PDF document' : 'scanned image'} containing information about business requirements.`,
-          `I've analyzed the content and found that it primarily discusses methodology and implementation strategies.`
-        ];
-        
-        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-        resolve(randomResponse);
-      }, 1000);
-    });
+        // Call the API with the PDF data
+        return await apiClient.analyzeText(instructions, undefined, base64Data, language);
+      } 
+      
+      // For non-PDF documents
+      console.log('Non-PDF document, using text analysis instead');
+      const content = await DocumentService.getDocumentContent(document);
+      return await apiClient.analyzeText(content, instructions);
+    } catch (error) {
+      console.error('Error analyzing document with Gemini:', error);
+      throw new Error(`Failed to analyze document: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 } 

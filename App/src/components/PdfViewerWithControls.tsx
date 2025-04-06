@@ -68,6 +68,8 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
         selectedText={selectedText}
         onAIExplain={handleAIExplain}
         style={styles.navigationBar}
+        documentUri={uri}
+        documentType="pdf" // This component is specifically for PDFs
       />
     </View>
   );

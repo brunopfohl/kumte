@@ -75,25 +75,49 @@ class ApiClient {
   }
   
   /**
-   * Analyze text using Gemini API
+   * Analyze text or document using Gemini API
+   * @param text Text to analyze or instructions for PDF analysis
+   * @param instructions Optional additional instructions for analysis
+   * @param pdfBase64 Optional Base64 encoded PDF data
+   * @param language Optional language code for response
+   * @returns Analysis result
    */
-  public async analyzeText(text: string, instructions: string = "Explain this text"): Promise<string> {
-    if (!text?.trim()) {
-      return "No text provided for analysis";
+  public async analyzeText(
+    text: string, 
+    instructions: string = "Explain this text",
+    pdfBase64?: string,
+    language?: string
+  ): Promise<string> {
+    if (!text?.trim() && !pdfBase64) {
+      return "No content provided for analysis";
     }
     
     try {
-      console.log(`Calling Gemini API at: ${this.baseUrl}/gemini/analyze`);
+      // Determine which endpoint to use based on whether we have PDF data
+      const endpoint = pdfBase64 
+        ? `${this.baseUrl}/gemini/analyze-pdf`
+        : `${this.baseUrl}/gemini/analyze`;
       
-      const response = await fetch(`${this.baseUrl}/gemini/analyze`, {
+      console.log(`Calling Gemini API at: ${endpoint}`);
+      
+      // Prepare request body based on what we're analyzing
+      const requestBody = pdfBase64
+        ? { 
+            pdfBase64: pdfBase64, 
+            instructions: text, // When sending PDF, text is used as instructions
+            language: language
+          }
+        : { 
+            text: text,
+            instructions: instructions
+          };
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          text: text,
-          instructions: instructions
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
@@ -102,7 +126,7 @@ class ApiClient {
       
       const result = await response.json();
       if (result.success) {
-        return result.data.analysis;
+        return pdfBase64 ? result.data.analysis : result.data.analysis;
       } else {
         throw new Error(result.error || 'Unknown error occurred');
       }
@@ -113,46 +137,6 @@ class ApiClient {
         : 'Failed to connect to Gemini API';
         
       return `Unable to get analysis: ${errorMessage}\n\nCheck if the API server is running and accessible at ${this.baseUrl}.`;
-    }
-  }
-  
-  /**
-   * Generate content using Gemini API
-   */
-  public async generateContent(prompt: string, modelName?: string): Promise<string> {
-    if (!prompt?.trim()) {
-      return "No prompt provided for generation";
-    }
-    
-    try {
-      const response = await fetch(`${this.baseUrl}/gemini/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          prompt: prompt,
-          modelName: modelName
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      if (result.success) {
-        return result.data.generatedText;
-      } else {
-        throw new Error(result.error || 'Unknown error occurred');
-      }
-    } catch (error) {
-      console.error('Error calling Gemini API:', error);
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Failed to connect to Gemini API';
-        
-      return `Unable to generate content: ${errorMessage}\n\nCheck if the API server is running and accessible at ${this.baseUrl}.`;
     }
   }
 }

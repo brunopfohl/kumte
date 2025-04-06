@@ -11,10 +11,12 @@ import {
   StatusBar,
   TextInput,
   FlatList,
-  Dimensions
+  Dimensions,
+  Modal
 } from 'react-native';
 import { LibraryScreenProps } from '../types';
 import { FileService, Document, documentService } from '../services/FileService';
+import { DocumentService } from '../services/DocumentService';
 import Icon from '../components/icons';
 import PdfThumbnail from '../components/PdfThumbnail';
 
@@ -139,6 +141,26 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
     return true; // 'all' filter
   });
 
+  const handleDocumentAction = (doc: Document) => {
+    Alert.alert(
+      'Document Actions',
+      `What would you like to do with "${doc.title}"?`,
+      [
+        { 
+          text: 'View Document', 
+          onPress: () => navigation.navigate('Viewer', {
+            uri: doc.uri,
+            type: doc.type
+          })
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
   const renderDocumentItem = ({ item: doc }: { item: Document }) => (
     <TouchableOpacity 
       style={styles.documentCard}
@@ -146,6 +168,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         uri: doc.uri,
         type: doc.type
       })}
+      onLongPress={() => handleDocumentAction(doc)}
+      delayLongPress={500}
     >
       <View style={styles.documentPreviewContainer}>
         {doc.type === 'pdf' ? (

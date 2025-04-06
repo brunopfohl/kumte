@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
 
 dotenv.config();
 
@@ -15,6 +16,11 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 export interface GenerationRequest {
   prompt: string;
   modelName?: string;
+  fileData?: {
+    base64Data?: string;
+    mimeType?: string;
+    filePath?: string;
+  };
 }
 
 export class GeminiService {
@@ -26,12 +32,45 @@ export class GeminiService {
   public async generateContent(request: GenerationRequest): Promise<string> {
     try {
       // Default model if not provided
-      const model = request.modelName || 'gemini-2.0-flash';
+      const model = request.modelName || 'gemini-1.5-flash';
+      
+      // Create contents array with the prompt
+      const contents: any[] = [{ text: request.prompt }];
+      
+      // If file data is provided, add it to the contents
+      if (request.fileData) {
+        if (request.fileData.base64Data && request.fileData.mimeType) {
+          // Use inline data for base64 encoded file
+          contents.push({
+            inlineData: {
+              mimeType: request.fileData.mimeType,
+              data: request.fileData.base64Data
+            }
+          });
+        } else if (request.fileData.filePath) {
+          // Read file directly from disk
+          try {
+            const data = readFileSync(request.fileData.filePath);
+            const base64Data = data.toString('base64');
+            const mimeType = request.fileData.mimeType || 'application/pdf';
+            
+            contents.push({
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            });
+          } catch (fileError) {
+            console.error('Error reading file:', fileError);
+            throw new Error(`Failed to read file: ${(fileError as Error).message}`);
+          }
+        }
+      }
       
       // Make API request
       const response = await genAI.models.generateContent({
         model: model,
-        contents: request.prompt,
+        contents: contents,
       });
       
       // Extract text from response
@@ -59,7 +98,7 @@ export class GeminiService {
       
       // Make API request
       const response = await genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
         contents: prompt,
       });
       
@@ -70,6 +109,54 @@ export class GeminiService {
     } catch (error) {
       console.error('Error analyzing text with Gemini API:', error);
       throw new Error(`Failed to analyze text: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Analyze PDF document using Google Gemini API
+   * @param pdfBase64 Base64 encoded PDF data
+   * @param instructions Instructions for analysis
+   * @param language Optional language to use for analysis and response
+   * @returns Analysis result
+   */
+  public async analyzePDF(
+    pdfBase64: string, 
+    instructions: string,
+    language?: string
+  ): Promise<string> {
+    try {
+      // Construct prompt with language awareness if provided
+      let prompt = instructions;
+      
+      // Add language instruction if provided
+      if (language && language !== 'en') {
+        prompt = `${instructions}\n\nPlease respond in ${language} language.`;
+      }
+      
+      // Create contents array
+      const contents: any[] = [{ text: prompt }];
+      
+      // Add PDF data
+      contents.push({
+        inlineData: {
+          mimeType: 'application/pdf',
+          data: pdfBase64
+        }
+      });
+      
+      // Make API request
+      const response = await genAI.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: contents,
+      });
+      
+      // Extract text from response
+      const responseText = response.text || '';
+      
+      return responseText;
+    } catch (error) {
+      console.error('Error analyzing PDF with Gemini API:', error);
+      throw new Error(`Failed to analyze PDF: ${(error as Error).message}`);
     }
   }
 }
