@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -33,16 +33,8 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
 
-  useEffect(() => {
-    loadDocuments();
-
-    const unsubscribe = navigation.addListener('focus', () => {
-    });
-
-    return unsubscribe;
-  }, [navigation]);
-
-  const loadDocuments = async () => {
+  // Create a memoized loadDocuments function that we can use in useEffect
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     try {
       const docs = await documentService.getDocuments();
@@ -53,7 +45,21 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadDocuments();
+
+    // Add listeners for both focus (when returning to screen) and beforeRemove (cleanup)
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('Library screen focused, refreshing documents');
+      loadDocuments();
+    });
+
+    return () => {
+      unsubscribeFocus();
+    };
+  }, [navigation, loadDocuments]);
 
   const handleImportDocument = async () => {
     setImporting(true);
@@ -158,6 +164,41 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
             uri: doc.uri,
             type: doc.type
           })
+        },
+        {
+          text: 'Delete Document',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Confirm Delete',
+              `Are you sure you want to delete "${doc.title}"?`,
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel'
+                },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const success = await documentService.deleteDocument(doc.id);
+                      if (success) {
+                        // Update state to remove the document
+                        setDocuments(prevDocs => prevDocs.filter(d => d.id !== doc.id));
+                        Alert.alert('Success', 'Document has been deleted');
+                      } else {
+                        Alert.alert('Error', 'Failed to delete document');
+                      }
+                    } catch (error) {
+                      console.error('Error deleting document:', error);
+                      Alert.alert('Error', 'An error occurred while deleting the document');
+                    }
+                  }
+                }
+              ]
+            );
+          }
         },
         {
           text: 'Cancel',

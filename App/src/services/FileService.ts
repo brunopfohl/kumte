@@ -1,6 +1,7 @@
 import { Alert, Platform, NativeModules } from 'react-native';
 import { pick, types } from '@react-native-documents/picker';
 import RNFS from 'react-native-fs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Document {
   id: string;
@@ -11,6 +12,9 @@ export interface Document {
   date: Date;
   dataUri?: string; // Store data URI for direct viewing
 }
+
+// Storage key for documents
+const DOCUMENTS_STORAGE_KEY = 'app_documents';
 
 // Mock document data for now - will be replaced with actual API/storage calls
 const mockDocuments: Document[] = [
@@ -25,6 +29,74 @@ const mockDocuments: Document[] = [
  */
 class FileServiceClass {
   private documents: Document[] = [];
+  private initialized = false;
+
+  constructor() {
+    this.init();
+  }
+
+  /**
+   * Initialize the service by loading saved documents
+   */
+  private async init() {
+    if (this.initialized) return;
+    
+    try {
+      await this.loadDocumentsFromStorage();
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to initialize FileService:', error);
+      // Fall back to empty documents array
+      this.documents = [];
+    }
+  }
+
+  /**
+   * Load documents from AsyncStorage
+   */
+  private async loadDocumentsFromStorage(): Promise<void> {
+    try {
+      const jsonValue = await AsyncStorage.getItem(DOCUMENTS_STORAGE_KEY);
+      
+      if (jsonValue) {
+        // Parse the JSON and ensure dates are converted back to Date objects
+        const parsedDocs = JSON.parse(jsonValue);
+        this.documents = parsedDocs.map((doc: any) => ({
+          ...doc,
+          date: new Date(doc.date)
+        }));
+        console.log(`Loaded ${this.documents.length} documents from storage`);
+      } else {
+        // No documents in storage yet, initialize with empty array
+        this.documents = [];
+        console.log('No documents found in storage');
+      }
+    } catch (error) {
+      console.error('Error loading documents from storage:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save documents to AsyncStorage
+   */
+  private async saveDocumentsToStorage(): Promise<void> {
+    try {
+      // Create a lighter version of documents for storage
+      // Don't store dataUri which can be very large
+      const storageDocuments = this.documents.map(doc => {
+        const { dataUri, ...lightDoc } = doc;
+        return lightDoc;
+      });
+      
+      const jsonValue = JSON.stringify(storageDocuments);
+      await AsyncStorage.setItem(DOCUMENTS_STORAGE_KEY, jsonValue);
+      console.log(`Saved ${storageDocuments.length} documents to storage (without data URIs)`);
+    } catch (error) {
+      console.error('Error saving documents to storage:', error);
+      throw error;
+    }
+  }
 
   /**
    * Get all documents
@@ -167,10 +239,17 @@ class FileServiceClass {
   async importDocument(): Promise<Document | null> {
     try {
       // Use ACTION_OPEN_DOCUMENT via @react-native-documents/picker
+      // Ensure we use the proper options for persistent permissions
       const [result] = await pick({
         type: [types.pdf, types.images],
         allowMultiSelection: false,
         copyTo: 'cachesDirectory', // Always copy to cache for reliable file:// access
+        mode: 'open', // Explicitly use ACTION_OPEN_DOCUMENT
+        // Request persistent permissions
+        extraOptions: {
+          persistableUriPermission: true,
+          grantReadPermissionOnly: true
+        }
       });
 
       console.log('File selected:', result);
@@ -196,12 +275,49 @@ class FileServiceClass {
           if (response.fileCopyUri) {
             fileUri = response.fileCopyUri;
             console.log('Using copied file URI from picker:', fileUri);
+          } else {
+            // If no file copy, we need to make one to avoid permission issues
+            console.log('No file copy provided by picker, creating one manually');
+            try {
+              const timestamp = Date.now();
+              const extension = fileExtension || (documentType === 'pdf' ? 'pdf' : 'jpg');
+              const fileName = `document_${timestamp}.${extension}`;
+              const destPath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+              
+              // Copy the file to cache
+              await RNFS.copyFile(result.uri, destPath);
+              console.log('File copied successfully to:', destPath);
+              
+              // Update fileUri to use our cached copy
+              fileUri = `file://${destPath}`;
+            } catch (copyErr) {
+              console.error('Failed to copy file to cache:', copyErr);
+              // We'll continue with the content URI and handle permission issues elsewhere
+            }
           }
           
-          // Create a data URI for immediate viewing regardless of if we have a file copy
-          const mimeType = documentType === 'pdf' ? 'application/pdf' : `image/${fileExtension}`;
-          dataUri = await FileServiceClass.createDataUri(result.uri, mimeType);
-          console.log('Created data URI for direct viewing');
+          // For smaller files (< 5MB), create data URI for immediate viewing
+          try {
+            const path = fileUri.startsWith('file://') && Platform.OS === 'android' 
+              ? fileUri.replace('file://', '') 
+              : fileUri;
+            
+            const stats = await RNFS.stat(path);
+            const fileSize = stats.size;
+            console.log(`File size: ${fileSize} bytes`);
+            
+            // Only create data URI for files smaller than 5MB to prevent SQLite errors
+            const MAX_SIZE_FOR_DATA_URI = 5 * 1024 * 1024; // 5MB
+            if (fileSize < MAX_SIZE_FOR_DATA_URI) {
+              const mimeType = documentType === 'pdf' ? 'application/pdf' : `image/${fileExtension}`;
+              dataUri = await FileServiceClass.createDataUri(fileUri, mimeType);
+              console.log('Created data URI for direct viewing');
+            } else {
+              console.log('File too large for data URI storage, will load on demand when needed');
+            }
+          } catch (statError) {
+            console.log('Could not get file stats, skipping data URI creation:', statError);
+          }
         } catch (copyError) {
           console.warn('Failed during content URI processing:', copyError);
           // Still use original URI as fallback
@@ -222,6 +338,10 @@ class FileServiceClass {
 
       // Store document
       this.documents.push(newDocument);
+      
+      // Save to persistent storage
+      await this.saveDocumentsToStorage();
+      
       console.log('Imported document:', newDocument);
       
       return newDocument;
@@ -274,6 +394,24 @@ class FileServiceClass {
    */
   getDocumentById(id: string): Document | undefined {
     return this.documents.find(doc => doc.id === id);
+  }
+
+  /**
+   * Delete a document by ID
+   */
+  async deleteDocument(id: string): Promise<boolean> {
+    const index = this.documents.findIndex(doc => doc.id === id);
+    
+    if (index !== -1) {
+      this.documents.splice(index, 1);
+      
+      // Save changes to persistent storage
+      await this.saveDocumentsToStorage();
+      
+      return true;
+    }
+    
+    return false;
   }
 }
 

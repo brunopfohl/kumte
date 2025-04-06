@@ -48,13 +48,37 @@ export class DocumentService {
       }
       
       // If the document has a data URI already, cache and return it
-      if (document.uri.startsWith('data:')) {
-        documentUriCache[cacheKey] = document.uri;
-        return document.uri;
+      if (document.dataUri) {
+        documentUriCache[cacheKey] = document.dataUri;
+        return document.dataUri;
       }
       
-      // For content:// or file:// URIs
-      if (document.uri.startsWith('content://') || document.uri.startsWith('file://')) {
+      // Handle content:// URIs by making a copy if needed
+      if (document.uri.startsWith('content://')) {
+        console.log('Found content:// URI, creating a local copy to avoid permission issues');
+        try {
+          // Create a local copy to avoid permission issues
+          const timestamp = Date.now();
+          const extension = document.type === 'pdf' ? 'pdf' : 'jpg';
+          const fileName = `temp_${document.id}_${timestamp}.${extension}`;
+          const destPath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+          
+          // Copy the file to cache
+          await RNFS.copyFile(document.uri, destPath);
+          console.log('Created local copy at:', destPath);
+          
+          // Use the local file instead
+          const localUri = `file://${destPath}`;
+          documentUriCache[cacheKey] = localUri;
+          return localUri;
+        } catch (copyError) {
+          console.error('Failed to create local copy from content URI:', copyError);
+          // Continue with normal processing, might fail due to permissions
+        }
+      }
+      
+      // For file:// URIs
+      if (document.uri.startsWith('file://')) {
         console.log('Converting local document to data URI');
         
         // For PDFs, convert to data URI
@@ -74,6 +98,15 @@ export class DocumentService {
               documentUriCache[cacheKey] = dataUri;
               return dataUri;
             } else {
+              // Check file size before reading
+              const stats = await RNFS.stat(path);
+              if (stats.size > 20 * 1024 * 1024) { // 20MB limit
+                console.log('File too large for data URI, using direct file path instead');
+                // For very large PDFs, use the file:// URI directly
+                documentUriCache[cacheKey] = document.uri;
+                return document.uri;
+              }
+              
               // Read file as base64
               const base64Data = await RNFS.readFile(path, 'base64');
               const dataUri = `data:application/pdf;base64,${base64Data}`;
@@ -85,7 +118,9 @@ export class DocumentService {
             }
           } catch (error) {
             console.error('Failed to convert document to data URI:', error);
-            throw new Error(`Cannot read document: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // Fall back to file URI
+            documentUriCache[cacheKey] = document.uri;
+            return document.uri;
           }
         }
         
@@ -95,6 +130,14 @@ export class DocumentService {
             const path = document.uri.startsWith('file://') && Platform.OS === 'android' 
               ? document.uri.replace('file://', '') 
               : document.uri;
+            
+            // Check file size before reading
+            const stats = await RNFS.stat(path);
+            if (stats.size > 5 * 1024 * 1024) { // 5MB limit for images
+              console.log('Image too large for data URI, using direct file path instead');
+              documentUriCache[cacheKey] = document.uri;
+              return document.uri;
+            }
             
             // Read file as base64
             const base64Data = await RNFS.readFile(path, 'base64');
@@ -141,30 +184,29 @@ export class DocumentService {
         throw new Error("Invalid document");
       }
       
+      // First, prepare the document for viewing - this will create local copies
+      // of content URIs and handle permissions properly
+      const preparedUri = await DocumentService.prepareDocumentForViewing(document);
+      
       // For PDF documents
       if (document.type === 'pdf') {
         // Get document data as base64
         let base64Data: string;
         
         // If we already have a data URI
-        if (document.dataUri && document.dataUri.startsWith('data:application/pdf;base64,')) {
-          base64Data = document.dataUri.split(',')[1];
+        if (preparedUri.startsWith('data:application/pdf;base64,')) {
+          base64Data = preparedUri.split(',')[1];
           console.log('Using existing data URI for Gemini analysis');
         } else {
           // Otherwise read the file
-          console.log('Reading document for Gemini analysis:', document.uri);
-          const path = document.uri.startsWith('file://') && Platform.OS === 'android' 
-            ? document.uri.replace('file://', '') 
-            : document.uri;
+          console.log('Reading document for Gemini analysis:', preparedUri);
+          const path = preparedUri.startsWith('file://') && Platform.OS === 'android' 
+            ? preparedUri.replace('file://', '') 
+            : preparedUri;
           
-          // Check if path is already a data URI
-          if (path.startsWith('data:application/pdf;base64,')) {
-            base64Data = path.split(',')[1];
-            console.log('Path is already a data URI, extracted base64 data');
-          } else {
-            base64Data = await RNFS.readFile(path, 'base64');
-            console.log('Document read successfully, length:', base64Data.length);
-          }
+          // Read the file as base64
+          base64Data = await RNFS.readFile(path, 'base64');
+          console.log('Document read successfully, length:', base64Data.length);
         }
         
         // Call the API with the PDF data
