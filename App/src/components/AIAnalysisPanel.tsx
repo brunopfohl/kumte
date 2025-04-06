@@ -10,10 +10,37 @@ import {
   Keyboard, 
   ActivityIndicator,
   ScrollView,
-  Modal
+  Modal,
+  Dimensions,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  useWindowDimensions,
+  ViewStyle,
+  TextStyle,
+  ImageStyle
 } from 'react-native';
 import { DocumentService } from '../services/DocumentService';
 import { Document } from '../services/FileService';
+import Svg, { Path } from 'react-native-svg';
+import Markdown from 'react-native-markdown-display';
+
+// Send Icon component
+const SendIcon = ({ color = "currentColor" }: { color?: string }) => (
+  <Svg
+    width={20}
+    height={20}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <Path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <Path d="M4.698 4.034l16.302 7.966l-16.302 7.966a.503 .503 0 0 1 -.546 -.124a.555 .555 0 0 1 -.12 -.568l2.468 -7.274l-2.468 -7.274a.555 .555 0 0 1 .12 -.568a.503 .503 0 0 1 .546 -.124z" />
+    <Path d="M6.5 12h14.5" />
+  </Svg>
+);
 
 interface AIAnalysisPanelProps {
   visible: boolean;
@@ -31,6 +58,198 @@ interface Keyword {
   summary: string;
   relevance: number;
 }
+
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Message content rendering with markdown support
+const MessageContent: React.FC<{ content: string }> = ({ content }) => {
+  const { width } = useWindowDimensions();
+  const maxWidth = Math.min(width * 0.85, 550);
+
+  // Define custom rules for better code block rendering
+  const markdownRules = {
+    code_block: (node: any, children: any, parent: any, styles: any) => {
+      return (
+        <View style={styles.code_block}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={true}
+            style={styles.code_block_scroll}
+          >
+            <Text style={styles.code_block_text}>{node.content}</Text>
+          </ScrollView>
+        </View>
+      );
+    }
+  };
+
+  const markdownStyles = {
+    body: {
+      color: '#374151',
+      fontSize: 14,
+      lineHeight: 22,
+    } as TextStyle,
+    paragraph: {
+      marginBottom: 12,
+      marginTop: 0,
+    } as TextStyle,
+    heading1: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      marginTop: 14,
+      color: '#111827',
+    } as TextStyle,
+    heading2: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      marginTop: 12,
+      color: '#1f2937',
+    } as TextStyle,
+    heading3: {
+      fontSize: 15,
+      fontWeight: 'bold',
+      marginBottom: 6,
+      marginTop: 10,
+      color: '#374151',
+    } as TextStyle,
+    heading4: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      marginBottom: 4,
+      marginTop: 8,
+      color: '#4b5563',
+    } as TextStyle,
+    heading5: {
+      fontSize:.95 * 14,
+      fontWeight: 'bold',
+      marginBottom: 4,
+      marginTop: 8,
+      color: '#4b5563',
+    } as TextStyle,
+    heading6: {
+      fontSize: .9 * 14,
+      fontWeight: 'bold',
+      marginBottom: 4,
+      marginTop: 8,
+      color: '#4b5563',
+    } as TextStyle,
+    code_block: {
+      backgroundColor: '#f3f4f6',
+      borderRadius: 4,
+      padding: 10,
+      marginVertical: 8,
+    } as ViewStyle,
+    code_inline: {
+      backgroundColor: '#f3f4f6',
+      borderRadius: 3,
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+    } as TextStyle,
+    blockquote: {
+      backgroundColor: '#f9fafb',
+      borderLeftColor: '#e5e7eb',
+      borderLeftWidth: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginVertical: 8,
+    } as ViewStyle,
+    bullet_list: {
+      marginVertical: 8,
+    } as ViewStyle,
+    ordered_list: {
+      marginVertical: 8,
+    } as ViewStyle,
+    list_item: {
+      flexDirection: 'row',
+      marginBottom: 6,
+    } as ViewStyle,
+    bullet_list_icon: {
+      marginRight: 8,
+      marginTop: 4,
+    } as TextStyle,
+    bullet_list_content: {
+      flex: 1,
+    } as ViewStyle,
+    ordered_list_icon: {
+      marginRight: 8,
+      marginTop: 4,
+    } as TextStyle,
+    ordered_list_content: {
+      flex: 1,
+    } as ViewStyle,
+    link: {
+      color: '#8b5cf6',
+      textDecorationLine: 'underline',
+    } as TextStyle,
+    table: {
+      borderWidth: 1,
+      borderColor: '#e5e7eb',
+      borderRadius: 4,
+      marginVertical: 10,
+    } as ViewStyle,
+    tableHeader: {
+      backgroundColor: '#f9fafb',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      borderBottomWidth: 1,
+      borderColor: '#e5e7eb',
+    } as ViewStyle,
+    tableHeaderCell: {
+      flex: 1,
+      padding: 8,
+      fontWeight: 'bold',
+    } as TextStyle,
+    tableRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      borderBottomWidth: 1,
+      borderColor: '#e5e7eb',
+    } as ViewStyle,
+    tableRowCell: {
+      flex: 1,
+      padding: 8,
+    } as TextStyle,
+    hr: {
+      backgroundColor: '#e5e7eb',
+      height: 1,
+      marginVertical: 16,
+    } as ViewStyle,
+    image: {
+      maxWidth: maxWidth - 32, // Account for padding
+      borderRadius: 4,
+      marginVertical: 8,
+    } as ImageStyle,
+    strong: {
+      fontWeight: 'bold',
+    } as TextStyle,
+    em: {
+      fontStyle: 'italic',
+    } as TextStyle,
+    strikethrough: {
+      textDecorationLine: 'line-through',
+    } as TextStyle,
+    code_block_scroll: {
+      flexGrow: 0,
+    } as ViewStyle,
+    code_block_text: {
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+      fontSize: 13,
+      color: '#1f2937',
+    } as TextStyle,
+  };
+
+  return (
+    <Markdown 
+      style={markdownStyles}
+      rules={markdownRules}
+    >
+      {content}
+    </Markdown>
+  );
+};
 
 const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   visible,
@@ -196,87 +415,111 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           }
         ]}
       >
-        <View style={styles.chatHeader}>
-          <Text style={styles.chatTitle}>AI Analysis</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.closeButton}>×</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.selectedTextContainer}>
-          <Text style={styles.selectedTextLabel}>SELECTED TEXT</Text>
-          <Text style={styles.selectedTextContent} numberOfLines={2}>
-            {selectedText}
-          </Text>
-        </View>
-        
-        {/* Keywords Section */}
-        <View style={styles.keywordsContainer}>
-          <Text style={styles.keywordsTitle}>KEY CONCEPTS</Text>
-          {keywordsLoading ? (
-            <View style={styles.keywordsLoadingContainer}>
-              <ActivityIndicator size="small" color="#8b5cf6" />
-              <Text style={styles.loadingText}>Extracting keywords...</Text>
-            </View>
-          ) : keywords.length > 0 ? (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.keywordsScrollContent}
-            >
-              {keywords.map((keyword, index) => (
-                <TouchableOpacity 
-                  key={`keyword-${index}`} 
-                  style={styles.keywordBadge}
-                  onPress={() => handleKeywordPress(keyword)}
-                >
-                  <Text style={styles.keywordText}>{keyword.word}</Text>
-                  <Text style={styles.keywordRelevance}>{keyword.relevance}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={styles.noKeywordsText}>No keywords found</Text>
-          )}
-        </View>
-        
-        <View style={styles.messageArea}>
-          {geminiLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#8b5cf6" />
-              <Text style={styles.loadingText}>Getting analysis from Gemini...</Text>
-            </View>
-          ) : geminiResponse ? (
-            <Text style={styles.messageText}>{geminiResponse}</Text>
-          ) : (
-            <Text style={styles.messagePlaceholder}>
-              AI response will appear here...
-            </Text>
-          )}
-        </View>
-        
-        <View style={styles.chatInputContainer}>
-          <TextInput
-            style={styles.chatInput}
-            placeholder="Ask a follow-up question..."
-            value={inputText}
-            onChangeText={setInputText}
-            returnKeyType="send"
-            onSubmitEditing={handleSendPress}
-          />
-          <TouchableOpacity 
-            style={styles.sendButton}
-            disabled={inputText.trim().length === 0}
-            onPress={handleSendPress}
+        <SafeAreaView style={styles.container}>
+          {/* Fixed Header */}
+          <View style={styles.chatHeader}>
+            <Text style={styles.chatTitle}>AI Analysis</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButtonContainer}>
+              <Text style={styles.closeButton}>×</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <KeyboardAvoidingView 
+            style={styles.keyboardAvoidContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
           >
-            <Text style={[
-              styles.sendButtonText,
-              inputText.trim().length === 0 && styles.sendButtonDisabled
-            ]}>
-              Send
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {/* Scrollable Content */}
+            <ScrollView 
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
+              alwaysBounceVertical={true}
+            >
+              <View style={styles.selectedTextContainer}>
+                <Text style={styles.selectedTextLabel}>SELECTED TEXT</Text>
+                <Text style={styles.selectedTextContent}>
+                  {selectedText}
+                </Text>
+              </View>
+              
+              {/* Keywords Section */}
+              <View style={styles.keywordsContainer}>
+                <Text style={styles.keywordsTitle}>KEY CONCEPTS</Text>
+                {keywordsLoading ? (
+                  <View style={styles.keywordsLoadingContainer}>
+                    <ActivityIndicator size="small" color="#8b5cf6" />
+                    <Text style={styles.loadingText}>Extracting keywords...</Text>
+                  </View>
+                ) : keywords.length > 0 ? (
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.keywordsScrollContent}
+                    nestedScrollEnabled={true}
+                  >
+                    {keywords.map((keyword, index) => (
+                      <TouchableOpacity 
+                        key={`keyword-${index}`} 
+                        style={styles.keywordBadge}
+                        onPress={() => handleKeywordPress(keyword)}
+                      >
+                        <Text style={styles.keywordText}>{keyword.word}</Text>
+                        <Text style={styles.keywordRelevance}>{keyword.relevance}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={styles.noKeywordsText}>No keywords found</Text>
+                )}
+              </View>
+              
+              <View style={styles.messageArea}>
+                <Text style={styles.analysisTitle}>ANALYSIS</Text>
+                {geminiLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#8b5cf6" />
+                    <Text style={styles.loadingText}>Getting analysis from Gemini...</Text>
+                  </View>
+                ) : geminiResponse ? (
+                  <MessageContent content={geminiResponse} />
+                ) : (
+                  <Text style={styles.messagePlaceholder}>
+                    AI response will appear here...
+                  </Text>
+                )}
+              </View>
+              
+              {/* Extra space at the bottom for better scrolling */}
+              <View style={styles.scrollBottomSpacer} />
+            </ScrollView>
+            
+            {/* Fixed Input Area */}
+            <View style={styles.chatInputContainer}>
+              <TextInput
+                style={styles.chatInput}
+                placeholder="Ask a follow-up question..."
+                value={inputText}
+                onChangeText={setInputText}
+                returnKeyType="send"
+                onSubmitEditing={handleSendPress}
+                multiline
+              />
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton,
+                  inputText.trim().length === 0 && styles.sendButtonDisabled
+                ]}
+                disabled={inputText.trim().length === 0}
+                onPress={handleSendPress}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <SendIcon color={inputText.trim().length === 0 ? "#9ca3af" : "#ffffff"} />
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </Animated.View>
 
       {/* Keyword Detail Modal */}
@@ -324,16 +567,37 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    flexDirection: 'column',
+  },
+  keyboardAvoidContainer: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  scrollBottomSpacer: {
+    height: 40,
+  },
   chatWindow: {
-    width: '90%',
-    maxWidth: 500,
+    width: '94%',
+    maxWidth: 600,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     overflow: 'hidden',
-    maxHeight: 400,
+    height: SCREEN_HEIGHT * 0.7,
+    maxHeight: SCREEN_HEIGHT * 0.8,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -354,11 +618,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
+    zIndex: 10,
   },
   chatTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+  },
+  closeButtonContainer: {
+    padding: 8,
+    marginRight: -8,
   },
   closeButton: {
     fontSize: 24,
@@ -369,7 +639,6 @@ const styles = StyleSheet.create({
   selectedTextContainer: {
     padding: 16,
     backgroundColor: '#f9fafb',
-    maxHeight: 100,
   },
   selectedTextLabel: {
     fontSize: 12,
@@ -386,7 +655,9 @@ const styles = StyleSheet.create({
   keywordsContainer: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderTopWidth: 1,
+    borderColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
   },
   keywordsTitle: {
     fontSize: 12,
@@ -438,8 +709,13 @@ const styles = StyleSheet.create({
   },
   messageArea: {
     padding: 16,
-    minHeight: 80,
-    maxHeight: 160,
+  },
+  analysisTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -465,32 +741,55 @@ const styles = StyleSheet.create({
   chatInputContainer: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-    padding: 12,
+    borderTopColor: '#e5e7eb',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
   },
   chatInput: {
     flex: 1,
     backgroundColor: '#f3f4f6',
-    borderRadius: 20,
+    borderRadius: 24,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingRight: 45,
     fontSize: 14,
     color: '#374151',
+    maxHeight: 100,
+    minHeight: 45,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   sendButton: {
-    marginLeft: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    position: 'absolute',
+    right: 24,
+    backgroundColor: '#8b5cf6',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  sendButtonDisabled: {
+    backgroundColor: '#e5e7eb',
+  },
   sendButtonText: {
-    color: '#8b5cf6',
+    color: 'white',
     fontWeight: '600',
     fontSize: 14,
   },
-  sendButtonDisabled: {
-    color: '#d1d5db',
+  sendButtonTextDisabled: {
+    color: '#9ca3af',
   },
   // Modal styles
   modalOverlay: {
