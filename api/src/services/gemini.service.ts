@@ -132,6 +132,8 @@ export class GeminiService {
       if (language && language !== 'en') {
         prompt = `${instructions}\n\nPlease respond in ${language} language.`;
       }
+
+      console.log(language);
       
       // Create contents array
       const contents: any[] = [{ text: prompt }];
@@ -143,6 +145,8 @@ export class GeminiService {
           data: pdfBase64
         }
       });
+
+      console.log(contents);
       
       // Make API request
       const response = await genAI.models.generateContent({

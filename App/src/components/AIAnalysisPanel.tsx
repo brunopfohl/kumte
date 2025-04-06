@@ -69,6 +69,24 @@ interface Message {
   timestamp: Date;
 }
 
+type Language = {
+  code: string;
+  name: string;
+};
+
+const LANGUAGES: Language[] = [
+  { code: 'en', name: 'English' },
+  { code: 'cs', name: 'Czech' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'it', name: 'Italian' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'ru', name: 'Russian' },
+  { code: 'zh', name: 'Chinese' },
+  { code: 'ja', name: 'Japanese' },
+];
+
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Message content rendering with markdown support
@@ -293,6 +311,8 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentQuery, setCurrentQuery] = useState<string>('');
+  const [currentLanguage, setCurrentLanguage] = useState<Language>(LANGUAGES[0]);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   // Animation calculated values
   const translateY = animValue.interpolate({
@@ -312,7 +332,16 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
       extractKeywords(selectedText);
       setCurrentQuery('Initial analysis');
     }
-  }, [visible, selectedText]);
+  }, [visible, selectedText, currentLanguage.code]);
+  
+  // Reanalyze when language changes
+  useEffect(() => {
+    if (visible && selectedText && currentLanguage) {
+      // Always reanalyze when language changes, even if there's no response yet
+      analyzeWithGemini(selectedText);
+      extractKeywords(selectedText);
+    }
+  }, [currentLanguage.code]); // Use code specifically to ensure proper dependency tracking
 
   // Function to analyze text with Gemini using DocumentService
   const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
@@ -331,8 +360,18 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
+      // Get the current language at the time of API call
+      const langToUse = currentLanguage;
+      
+      // Add language instruction to the prompt
+      const languageInstruction = langToUse.code !== 'en' 
+        ? `Please provide your answer in ${langToUse.name} (${langToUse.code}).` 
+        : '';
+      
       // Use DocumentService.analyzeDocumentWithGemini with the selected text as instructions
-      const fullInstruction = `${instruction}\n\nHere is the text to analyze: "${text}"`;
+      const fullInstruction = `${instruction}\n\n${languageInstruction}\n\nHere is the text to analyze: "${text}"`;
+      
+      console.log(`Analyzing text with language: ${langToUse.name} (${langToUse.code})`);
       const response = await DocumentService.analyzeDocumentWithGemini(doc, fullInstruction);
       
       setGeminiResponse(response);
@@ -375,6 +414,16 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
+      // Get the current language at the time of API call
+      const langToUse = currentLanguage;
+      
+      // Add language instruction for keywords
+      const languageInstruction = langToUse.code !== 'en' 
+        ? `Extract and generate the keywords in ${langToUse.name} (${langToUse.code}).` 
+        : '';
+      
+      console.log(`Extracting keywords with language: ${langToUse.name} (${langToUse.code})`);
+      
       // Instruction for Gemini to extract keywords with structured output
       const instruction = `
         Extract the top 20 most relevant keywords or key phrases from the text, and provide a brief summary for each.
@@ -384,6 +433,8 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         - "word": the keyword or key phrase (string)
         - "summary": a brief 1-2 sentence explanation of why this keyword is important (string)
         - "relevance": a number from 1-10 indicating importance (number)
+        
+        ${languageInstruction}
         
         Format the output as valid JSON that can be parsed. Only return the JSON array, no other text.
         
@@ -443,6 +494,26 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     setSelectedKeyword(null);
   };
 
+  // Handle language change
+  const handleLanguageChange = (language: Language) => {
+    console.log(`Language changed to: ${language.name} (${language.code})`);
+    setCurrentLanguage(language);
+    setShowLanguageDropdown(false);
+    
+    // Force refresh the analysis with the new language
+    if (visible && selectedText) {
+      // Clear current response to show loading state
+      setGeminiResponse('');
+      setKeywords([]);
+      
+      // Short timeout to ensure state updates before reanalysis
+      setTimeout(() => {
+        analyzeWithGemini(selectedText);
+        extractKeywords(selectedText);
+      }, 50);
+    }
+  };
+
   if (!visible) return null;
 
   return (
@@ -459,7 +530,47 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         <SafeAreaView style={styles.container}>
           {/* Fixed Header */}
           <View style={styles.chatHeader}>
-            <Text style={styles.chatTitle}>AI Analysis</Text>
+            <View style={styles.titleContainer}>
+              <Text style={styles.chatTitle}>AI Analysis</Text>
+              
+              {/* Language selector */}
+              <TouchableOpacity 
+                style={styles.languageSelector}
+                onPress={() => setShowLanguageDropdown(!showLanguageDropdown)}
+              >
+                <Text style={styles.languageText}>{currentLanguage.name}</Text>
+                <Svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth={2}>
+                  <Path d={showLanguageDropdown ? "M18 15l-6-6-6 6" : "M6 9l6 6 6-6"} />
+                </Svg>
+              </TouchableOpacity>
+              
+              {showLanguageDropdown && (
+                <View style={styles.languageDropdown}>
+                  <ScrollView style={{maxHeight: 200}}>
+                    {LANGUAGES.map((language) => (
+                      <TouchableOpacity
+                        key={language.code}
+                        style={[
+                          styles.languageOption,
+                          language.code === currentLanguage.code && styles.selectedLanguageOption
+                        ]}
+                        onPress={() => handleLanguageChange(language)}
+                      >
+                        <Text 
+                          style={[
+                            styles.languageOptionText,
+                            language.code === currentLanguage.code && styles.selectedLanguageOptionText
+                          ]}
+                        >
+                          {language.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+            
             <TouchableOpacity onPress={onClose} style={styles.closeButtonContainer}>
               <Text style={styles.closeButton}>×</Text>
             </TouchableOpacity>
@@ -566,16 +677,26 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             
             {/* Fixed Input Area */}
             <View style={styles.chatInputContainer}>
-              <TextInput
-                style={styles.chatInput}
-                placeholder="Type a message..."
-                placeholderTextColor="#9ca3af"
-                value={inputText}
-                onChangeText={setInputText}
-                returnKeyType="send"
-                onSubmitEditing={handleSendPress}
-                multiline
-              />
+              <View style={styles.inputWrapper}>
+                {currentLanguage.code !== 'en' && (
+                  <View style={styles.languageIndicator}>
+                    <Text style={styles.languageIndicatorText}>{currentLanguage.code}</Text>
+                  </View>
+                )}
+                <TextInput
+                  style={[
+                    styles.chatInput,
+                    currentLanguage.code !== 'en' && { paddingLeft: 40 }
+                  ]}
+                  placeholder="Type a message..."
+                  placeholderTextColor="#9ca3af"
+                  value={inputText}
+                  onChangeText={setInputText}
+                  returnKeyType="send"
+                  onSubmitEditing={handleSendPress}
+                  multiline
+                />
+              </View>
               <TouchableOpacity 
                 style={[
                   styles.sendButton,
@@ -691,10 +812,65 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     zIndex: 10,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    zIndex: 20,
+  },
   chatTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+    marginRight: 8,
+  },
+  languageSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#f5f3ff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9d5ff',
+  },
+  languageText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#8b5cf6',
+    marginRight: 4,
+  },
+  languageDropdown: {
+    position: 'absolute',
+    top: 28,
+    right: 0,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    width: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    zIndex: 30,
+  },
+  languageOption: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  selectedLanguageOption: {
+    backgroundColor: '#f5f3ff',
+  },
+  languageOptionText: {
+    fontSize: 14,
+    color: '#4b5563',
+  },
+  selectedLanguageOptionText: {
+    color: '#8b5cf6',
+    fontWeight: '600',
   },
   closeButtonContainer: {
     padding: 8,
@@ -833,6 +1009,28 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#ffffff',
     alignItems: 'center',
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  languageIndicator: {
+    position: 'absolute',
+    left: 10,
+    zIndex: 10,
+    backgroundColor: '#f5f3ff',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#e9d5ff',
+  },
+  languageIndicatorText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#8b5cf6',
   },
   chatInput: {
     flex: 1,
