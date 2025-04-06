@@ -37,8 +37,11 @@ const SendIcon = ({ color = "currentColor" }: { color?: string }) => (
     strokeLinejoin="round"
   >
     <Path stroke="none" d="M0 0h24v24H0z" fill="none" />
-    <Path d="M4.698 4.034l16.302 7.966l-16.302 7.966a.503 .503 0 0 1 -.546 -.124a.555 .555 0 0 1 -.12 -.568l2.468 -7.274l-2.468 -7.274a.555 .555 0 0 1 .12 -.568a.503 .503 0 0 1 .546 -.124z" />
-    <Path d="M6.5 12h14.5" />
+    <Path d="M8 9h8" />
+    <Path d="M8 13h6" />
+    <Path d="M14.5 18.5l-2.5 2.5l-3 -3h-3a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v4.5" />
+    <Path d="M19 22v.01" />
+    <Path d="M19 19a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483" />
   </Svg>
 );
 
@@ -499,7 +502,8 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
             <View style={styles.chatInputContainer}>
               <TextInput
                 style={styles.chatInput}
-                placeholder="Ask a follow-up question..."
+                placeholder="Type a message..."
+                placeholderTextColor="#9ca3af"
                 value={inputText}
                 onChangeText={setInputText}
                 returnKeyType="send"
@@ -749,7 +753,7 @@ const styles = StyleSheet.create({
   },
   chatInput: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
     borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -758,6 +762,8 @@ const styles = StyleSheet.create({
     color: '#374151',
     maxHeight: 100,
     minHeight: 45,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -774,9 +780,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 24,
     backgroundColor: '#8b5cf6',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
