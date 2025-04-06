@@ -590,10 +590,12 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
               alwaysBounceVertical={true}
             >
               <View style={styles.selectedTextContainer}>
-                <Text style={styles.selectedTextLabel}>SELECTED TEXT</Text>
-                <Text style={styles.selectedTextContent}>
-                  {selectedText}
-                </Text>
+                <View style={styles.selectedTextRow}>
+                  <Text style={styles.selectedTextLabel}>SELECTED TEXT:</Text>
+                  <Text style={styles.selectedTextContent} numberOfLines={1} ellipsizeMode="tail">
+                    {selectedText}
+                  </Text>
+                </View>
               </View>
               
               {/* Keywords Section */}
@@ -883,20 +885,26 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   selectedTextContainer: {
-    padding: 16,
+    padding: 12,
     backgroundColor: '#f9fafb',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  selectedTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   selectedTextLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#6b7280',
-    marginBottom: 4,
+    marginRight: 6,
     letterSpacing: 0.5,
   },
   selectedTextContent: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#374151',
-    lineHeight: 20,
+    flex: 1,
   },
   keywordsContainer: {
     padding: 12,
