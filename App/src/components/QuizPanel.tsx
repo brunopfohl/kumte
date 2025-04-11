@@ -176,7 +176,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     }
   };
   
-  // Simplify generateQuiz function and remove storage
   const generateQuiz = async () => {
     if (!documentUri) {
       Alert.alert('Error', 'Document URI is missing');
@@ -215,36 +214,11 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
         ? `Here is the text to analyze: "${selectedText}"` 
         : 'No text is selected. Generate questions from the entire document instead.';
 
-      // Add language instruction
-      const languageInstruction = selectedLanguage.code !== 'en'
-        ? `Generate the quiz in ${selectedLanguage.name}. Both questions and answers should be in ${selectedLanguage.name}.`
-        : '';
-
-      const instruction = `
-        Create a quiz with ${numberOfQuestions} questions based on the provided content.
-        ${additionalPrompt ? `Additional instructions: ${additionalPrompt}` : ''}
-        
-        The questions should be ${difficultyMap[difficultyLevel as keyof typeof difficultyMap]} difficulty.
-        Include these question types: ${questionTypes.join(', ')}.
-        ${languageInstruction}
-        
-        Format the output as a valid JSON array that can be parsed. Each question object should have:
-        - "id": unique string (use just numbers 1, 2, 3...)
-        - "question": the full question text (concise)
-        - "options": array of possible answers (4 options for multiple choice, 2 for true/false)
-        - "correctAnswer": index of the correct answer (0-based)
-        - "explanation": brief explanation of why the answer is correct (keep this short)
-        
-        Keep all text as concise as possible while maintaining accuracy.
-        Make sure all questions are clear, accurate, and based on the provided content.
-        Only return the JSON array, no other text.
-        Escape all special characters properly to ensure valid JSON.
-        
-        ${textToAnalyze}
-      `;
-
-      console.log('Generating quiz...');
-      const response = await DocumentService.analyzeDocumentWithGemini(doc, instruction);
+      const response = await DocumentService.generateQuizQuestions(
+        doc,
+        textToAnalyze,
+        selectedLanguage.code
+      );
       
       try {
         // Clean up the response to ensure it's valid JSON

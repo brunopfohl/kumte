@@ -222,4 +222,96 @@ export class DocumentService {
       throw new Error(`Failed to analyze document: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
+
+  /**
+   * Generate quiz questions from document content
+   * @param document Document to analyze
+   * @param textToAnalyze Specific text to generate questions from
+   * @param language Optional language code for response
+   */
+  static async generateQuizQuestions(
+    document: Document,
+    textToAnalyze: string,
+    language?: string
+  ): Promise<string> {
+    const instruction = `
+      Generate 5 multiple choice questions based on the following text.
+      Each question should have 4 options and one correct answer.
+      Return the questions in the following JSON format:
+      [
+        {
+          "question": "Question text",
+          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "correctAnswer": 0,
+          "explanation": "Explanation of the correct answer"
+        }
+      ]
+      
+      Only return the JSON array, no other text.
+      Escape all special characters properly to ensure valid JSON.
+      
+      ${textToAnalyze}
+    `;
+
+    return await DocumentService.analyzeDocumentWithGemini(document, instruction, language);
+  }
+
+  /**
+   * Analyze text with language support
+   * @param document Document to analyze
+   * @param text Text to analyze
+   * @param instruction Analysis instruction
+   * @param language Optional language code for response
+   */
+  static async analyzeText(
+    document: Document,
+    text: string,
+    instruction: string = "Explain this text",
+    language?: string
+  ): Promise<string> {
+    const languageInstruction = language && language !== 'en' 
+      ? `Please provide your answer in ${language}.` 
+      : '';
+    
+    const fullInstruction = `${instruction}\n\n${languageInstruction}\n\nHere is the text to analyze: "${text}"`;
+    
+    return await DocumentService.analyzeDocumentWithGemini(document, fullInstruction, language);
+  }
+
+  /**
+   * Extract keywords from text with language support
+   * @param document Document to analyze
+   * @param text Text to extract keywords from
+   * @param language Optional language code for response
+   */
+  static async extractKeywords(
+    document: Document,
+    text: string,
+    language?: string
+  ): Promise<string> {
+    const languageInstruction = language && language !== 'en' 
+      ? `Please provide your answer in ${language}.` 
+      : '';
+    
+    const instruction = `
+      Extract the 5 most important keywords from the following text.
+      For each keyword, provide a brief summary of its relevance.
+      Return the results in the following JSON format:
+      [
+        {
+          "word": "keyword",
+          "summary": "brief explanation of relevance",
+          "relevance": 0.8
+        }
+      ]
+      
+      ${languageInstruction}
+      
+      Format the output as valid JSON that can be parsed. Only return the JSON array, no other text.
+      
+      Here is the text to analyze: "${text}"
+    `;
+    
+    return await DocumentService.analyzeDocumentWithGemini(document, instruction, language);
+  }
 } 

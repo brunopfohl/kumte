@@ -360,16 +360,12 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
-      const langToUse = selectedLanguage;
-      
-      const languageInstruction = langToUse.code !== 'en' 
-        ? `Please provide your answer in ${langToUse.name} (${langToUse.code}).` 
-        : '';
-      
-      const fullInstruction = `${instruction}\n\n${languageInstruction}\n\nHere is the text to analyze: "${text}"`;
-      
-      console.log(`Analyzing text with language: ${langToUse.name} (${langToUse.code})`);
-      const response = await DocumentService.analyzeDocumentWithGemini(doc, fullInstruction);
+      const response = await DocumentService.analyzeText(
+        doc,
+        text,
+        instruction,
+        selectedLanguage.code
+      );
       
       setGeminiResponse(response);
       
@@ -405,31 +401,11 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
         date: new Date()
       };
       
-      const langToUse = selectedLanguage;
-      
-      const languageInstruction = langToUse.code !== 'en' 
-        ? `Extract and generate the keywords in ${langToUse.name} (${langToUse.code}).` 
-        : '';
-      
-      console.log(`Extracting keywords with language: ${langToUse.name} (${langToUse.code})`);
-      
-      const instruction = `
-        Extract the top 20 most relevant keywords or key phrases from the text, and provide a brief summary for each.
-        Return the results as a JSON array of objects, ordered by relevance (most relevant first).
-        
-        Each object should have:
-        - "word": the keyword or key phrase (string)
-        - "summary": a brief 1-2 sentence explanation of why this keyword is important (string)
-        - "relevance": a number from 1-10 indicating importance (number)
-        
-        ${languageInstruction}
-        
-        Format the output as valid JSON that can be parsed. Only return the JSON array, no other text.
-        
-        Here is the text to analyze: "${text}"
-      `;
-      
-      const response = await DocumentService.analyzeDocumentWithGemini(doc, instruction);
+      const response = await DocumentService.extractKeywords(
+        doc,
+        text,
+        selectedLanguage.code
+      );
       
       try {
         const jsonStart = response.indexOf('[');
