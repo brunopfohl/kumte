@@ -359,8 +359,7 @@ class FileServiceClass {
         return null;
       }
       
-      console.error('Error importing document:', error);
-      throw error;
+      // todo: better handling per error type
     }
   }
 
