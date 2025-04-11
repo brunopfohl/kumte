@@ -12,10 +12,11 @@ import {
   TextInput,
   FlatList,
   Dimensions,
-  Modal
+  Modal,
+  Image
 } from 'react-native';
 import { LibraryScreenProps } from '../types';
-import { FileService, Document, documentService } from '../services/FileService';
+import { Document, documentService } from '../services/FileService';
 import { DocumentService } from '../services/DocumentService';
 import Icon from '../components/icons';
 import PdfThumbnail from '../components/PdfThumbnail';
@@ -47,10 +48,12 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
     }
   }, []);
 
+  // Load documents on mount and when screen is focused
   useEffect(() => {
+    // Initial load
     loadDocuments();
 
-    // Add listeners for both focus (when returning to screen) and beforeRemove (cleanup)
+    // Add listener for screen focus
     const unsubscribeFocus = navigation.addListener('focus', () => {
       console.log('Library screen focused, refreshing documents');
       loadDocuments();
@@ -224,13 +227,11 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
             height={180} 
           />
         ) : (
-          <View style={styles.documentIcon}>
-            <Icon 
-              name={getIconForDocument(doc.type)} 
-              size={40} 
-              color="#3498db" 
-            />
-          </View>
+          <Image
+            source={{ uri: doc.uri }}
+            style={styles.documentThumbnail}
+            resizeMode="cover"
+          />
         )}
         <TouchableOpacity 
           style={styles.optionsButton}
@@ -567,12 +568,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
     position: 'relative',
   },
-  documentIcon: {
+  documentThumbnail: {
     width: '100%',
     height: '100%',
     backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   documentInfo: {
     alignItems: 'center',
@@ -649,30 +648,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
-  },
-  thumbnailContainer: {
-    width: 60,
-    height: 80,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#f8faff',
-    borderWidth: 1,
-    borderColor: '#eef2ff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  pdfIconContainer: {
-    backgroundColor: '#ff7675',
-  },
-  imageIconContainer: {
-    backgroundColor: '#74b9ff',
-  },
-  listContainer: {
-    paddingTop: 8,
-    paddingBottom: 20,
   },
   optionsButton: {
     position: 'absolute',

@@ -6,7 +6,7 @@ import { RootStackParamList } from '../types';
 import RNFS from 'react-native-fs';
 import ImageViewer from 'react-native-image-zoom-viewer';
 import { DocumentService } from '../services/DocumentService';
-import { FileService, Document } from '../services/FileService';
+import { Document, documentService } from '../services/FileService';
 import PdfViewerWithControls from '../components/PdfViewerWithControls';
 import LanguageSelector, { Language } from '../components/LanguageSelector';
 
@@ -160,17 +160,19 @@ export const ViewerScreen = () => {
       if (uri.startsWith('content://')) {
         const mimeType = type === 'pdf' ? 'application/pdf' : 'image/jpeg';
         try {
-          return await FileService.createDataUri(uri, mimeType);
+          return await documentService.createDataUri(uri, mimeType);
         } catch (error) {
           console.error('Error processing content URI to data URI:', error);
           throw new Error(`Failed to process content URI: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } 
-      // For file:// URIs
-      else if (uri.startsWith('file://')) {
+      // For file:// URIs or raw paths
+      else if (uri.startsWith('file://') || uri.startsWith('/')) {
         const mimeType = type === 'pdf' ? 'application/pdf' : 'image/jpeg';
         try {
-          return await FileService.createDataUri(uri, mimeType);
+          // If it's a raw path, convert it to a file URI
+          const fileUri = uri.startsWith('/') ? `file://${uri}` : uri;
+          return await documentService.createDataUri(fileUri, mimeType);
         } catch (error) {
           console.error('Error processing file URI to data URI:', error);
           throw new Error(`Failed to process file URI: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -193,305 +195,59 @@ export const ViewerScreen = () => {
       
       // For PDFs, we'll take a direct data URI approach for more reliable viewing
       if (type === 'pdf') {
-        if (uri.startsWith('content://') || uri.startsWith('file://')) {
+        if (uri.startsWith('content://') || uri.startsWith('file://') || uri.startsWith('/')) {
           setLoading(true);
           try {
             // Convert directly to data URI
             const dataUri = await processFileToDataUri(uri);
-            
-            console.log('Successfully converted to data URI');
-            
             setFileInfo(prev => ({
               ...prev,
               exists: true,
-              path: dataUri, // Use data URI directly as the path
               isLocal: true,
+              path: dataUri
             }));
-            
-            setDebugInfo(prev => ({
-              ...prev,
-              sourceStatus: 'converted to data URI',
-              fileInfo: {
-                exists: true,
-                size: Math.floor(dataUri.length * 0.75), // Approximate size
-                path: 'data:application/pdf;base64,...', // Don't log the full data URI
-                isLocal: true,
-              },
-            }));
-            
             setLoading(false);
             return;
           } catch (error) {
-            const errorMsg = error instanceof Error 
-              ? error.message 
-              : 'Unknown error processing file';
-            console.error('Error converting to data URI:', error);
-            
-            if (errorMsg.includes('permission') || errorMsg.includes('access')) {
-              // This is likely a permission issue
-              setError(`Storage permissions required. Please grant permissions in Settings > Apps > YourApp > Permissions.`);
-            } else {
-              setError(`Error processing file: ${errorMsg}`);
-            }
-            
+            console.error('Error processing PDF to data URI:', error);
+            setError(`Failed to load PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
             setLoading(false);
             return;
           }
-        } else if (uri.startsWith('http')) {
-          // Remote URIs can be handled directly
-          console.log('Remote PDF URI detected, will load directly:', uri);
-          
-          setFileInfo(prev => ({
-            ...prev,
-            exists: true,
-            path: uri,
-            isLocal: false,
-          }));
-          
-          setDebugInfo(prev => ({
-            ...prev,
-            sourceStatus: 'remote URI ready',
-            fileInfo: {
-              exists: true,
-              size: 0, // Unknown size for remote URIs
-              path: uri,
-              isLocal: false,
-            },
-          }));
-          
-          setLoading(false);
-          return;
         }
       }
       
-      // For images, we can also try to use the data URI approach if we encounter permission issues
-      if (type === 'image' && (uri.startsWith('content://') || uri.startsWith('file://'))) {
-        // Try standard file access first
-        let fileAccessSuccessful = false;
-        
-        try {
-          // On Android, remove file:// prefix for RNFS operations
-          let cleanUri = uri;
-          if (Platform.OS === 'android' && uri.startsWith('file://')) {
-            cleanUri = uri.replace('file://', '');
-          }
-          
-          const exists = await RNFS.exists(cleanUri);
-          
-          if (exists) {
-            const stats = await RNFS.stat(cleanUri);
-            fileAccessSuccessful = true;
-            
-            // Success with direct file access
-            const viewerUri = Platform.OS === 'android' && uri.startsWith('file://')
-              ? uri
-              : (Platform.OS === 'android' ? `file://${cleanUri}` : uri);
-            
-            setFileInfo(prev => ({
-              ...prev,
-              exists: true,
-              size: stats.size,
-              path: viewerUri,
-            }));
-            
-            setDebugInfo(prev => ({
-              ...prev,
-              sourceStatus: 'file exists',
-              fileInfo: {
-                exists: true,
-                size: stats.size,
-                path: viewerUri,
-                isLocal: true,
-              },
-            }));
-            
-            setLoading(false);
-            return;
-          }
-        } catch (fsError) {
-          console.log('Standard file access failed, will try data URI approach:', fsError);
-          // Continue to data URI approach
-        }
-        
-        if (!fileAccessSuccessful) {
-          // Fall back to data URI for images if we couldn't access the file directly
+      // For images, we'll try to use the file directly if possible
+      if (type === 'image') {
+        if (uri.startsWith('content://') || uri.startsWith('file://') || uri.startsWith('/')) {
+          setLoading(true);
           try {
-            console.log('Trying to use data URI for image as fallback');
-            setLoading(true);
-            
+            // Convert to data URI for more reliable viewing
             const dataUri = await processFileToDataUri(uri);
-            console.log('Successfully converted image to data URI');
-            
             setFileInfo(prev => ({
               ...prev,
               exists: true,
-              path: dataUri,
               isLocal: true,
+              path: dataUri
             }));
-            
-            setDebugInfo(prev => ({
-              ...prev,
-              sourceStatus: 'converted image to data URI',
-              fileInfo: {
-                exists: true,
-                size: Math.floor(dataUri.length * 0.75),
-                path: dataUri.substring(0, 30) + '...',
-                isLocal: true,
-              },
-            }));
-            
             setLoading(false);
             return;
-          } catch (dataUriError) {
-            console.error('Data URI fallback for image also failed:', dataUriError);
-            // Continue to the remaining file checking flow
+          } catch (error) {
+            console.error('Error processing image to data URI:', error);
+            setError(`Failed to load image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            setLoading(false);
+            return;
           }
         }
       }
       
-      // Non-PDF content (images) or other URI types continue with original handling
-      // ... rest of the existing checkFile function ...
-
-      // Handle file:// URIs
-      if (uri.startsWith('file://')) {
-        console.log('File URI detected');
-        
-        // On Android, remove file:// prefix for RNFS operations
-        let cleanUri = uri;
-        if (Platform.OS === 'android') {
-          cleanUri = uri.replace('file://', '');
-          console.log('Android adjusted path:', cleanUri);
-        }
-
-        try {
-          console.log('Checking if file exists at:', cleanUri);
-          const exists = await RNFS.exists(cleanUri);
-          console.log('File exists check result:', exists);
-
-          if (exists) {
-            const stats = await RNFS.stat(cleanUri);
-            console.log('File stats:', stats);
-            console.log('File found with size:', stats.size, 'bytes');
-
-            // Try to read a small part of the file to verify it's accessible
-            try {
-              const firstBytes = await RNFS.read(cleanUri, 100, 0, 'base64');
-              console.log('Successfully read first bytes of file:', firstBytes.substring(0, 20) + '...');
-            } catch (readError) {
-              console.error('Error reading file content:', readError);
-            }
-
-            // On Android, the file:// prefix is important for the PDF viewer
-            const viewerUri = Platform.OS === 'android'
-              ? uri.startsWith('file://') ? uri : `file://${cleanUri}`
-              : uri;
-
-            console.log('Using viewer URI:', viewerUri);
-
-            setFileInfo(prev => ({
-              ...prev,
-              exists: true,
-              size: stats.size,
-              path: viewerUri,
-            }));
-
-            setDebugInfo(prev => ({
-              ...prev,
-              sourceStatus: 'file exists',
-              fileInfo: {
-                exists: true,
-                size: stats.size,
-                path: viewerUri,
-                isLocal: true,
-              },
-            }));
-          } else {
-            console.log('File not found at path:', cleanUri);
-            setError('File not found');
-            setDebugInfo(prev => ({
-              ...prev,
-              sourceStatus: 'file not found',
-              error: `File not found at path: ${cleanUri}`,
-            }));
-          }
-        } catch (fsError) {
-          console.error('Error checking file:', fsError);
-          const errorMessage = fsError instanceof Error ? fsError.message : 'Unknown file system error';
-          setError(errorMessage);
-          setDebugInfo(prev => ({
-            ...prev,
-            sourceStatus: 'file system error',
-            error: errorMessage,
-          }));
-        }
-      }
-      // Handle remote URIs (http://, https://)
-      else if (uri.startsWith('http')) {
-        console.log('Remote URI detected, checking accessibility:', uri);
-
-        try {
-          const response = await fetch(uri, { method: 'HEAD' });
-
-          if (response.ok) {
-            const contentLength = response.headers.get('content-length');
-            console.log('Remote file accessible, size:', contentLength);
-
-            setFileInfo(prev => ({
-              ...prev,
-              exists: true,
-              size: parseInt(contentLength || '0', 10),
-              path: uri,
-              isLocal: false,
-            }));
-
-            setDebugInfo(prev => ({
-              ...prev,
-              sourceStatus: 'remote file accessible',
-              fileInfo: {
-                exists: true,
-                size: parseInt(contentLength || '0', 10),
-                path: uri,
-                isLocal: false,
-              },
-            }));
-          } else {
-            setError(`Failed to access remote file: ${response.status}`);
-            setDebugInfo(prev => ({
-              ...prev,
-              sourceStatus: 'remote file inaccessible',
-              error: `Failed to access remote file: ${response.status}`,
-            }));
-          }
-        } catch (fetchError) {
-          console.error('Error fetching remote file:', fetchError);
-          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown fetch error';
-          setError(`Network error: ${errorMessage}`);
-          setDebugInfo(prev => ({
-            ...prev,
-            sourceStatus: 'network error',
-            error: `Network error: ${errorMessage}`,
-          }));
-        }
-      }
-      // Unknown URI scheme
-      else {
-        console.warn('Unknown URI scheme:', uri);
-        setError('Unsupported file location');
-        setDebugInfo(prev => ({
-          ...prev,
-          sourceStatus: 'unknown uri scheme',
-          error: 'Unsupported file location',
-        }));
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error checking file';
-      console.error('Error checking file:', err);
-      setError(errorMessage);
-      setDebugInfo(prev => ({
-        ...prev,
-        sourceStatus: 'error checking file',
-        error: errorMessage,
-      }));
+      // If we get here, the URI scheme is not supported
+      setError(`Unsupported URI scheme: ${uri}`);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error checking file:', error);
+      setError(`Failed to check file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setLoading(false);
     }
   };
 

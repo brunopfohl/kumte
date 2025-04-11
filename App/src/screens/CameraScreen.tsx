@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ActivityIndicator, Alert, Platform } from 'react-native';
 import { CameraScreenProps } from '../types';
-import { FileService } from '../services/FileService';
+import { documentService } from '../services/FileService';
 import { Camera, useCameraDevice, CameraPermissionStatus } from 'react-native-vision-camera';
 import { PermissionsAndroid } from 'react-native';
 
@@ -67,14 +67,15 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
 
       if (photo.path) {
         console.log('Photo path:', photo.path);
+        const fileUri = `file://${photo.path}`;
         const document = {
           title: 'Captured Document',
           type: 'image' as const,
-          uri: photo.path
+          uri: fileUri
         };
         
         console.log('Saving document...');
-        const savedDoc = await FileService.addDocument(document);
+        const savedDoc = await documentService.addDocument(document);
         console.log('Document saved:', savedDoc);
         
         if (savedDoc) {

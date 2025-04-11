@@ -30,9 +30,17 @@ const mockDocuments: Document[] = [
 class FileServiceClass {
   private documents: Document[] = [];
   private initialized = false;
+  private static instance: FileServiceClass;
 
-  constructor() {
-    this.init();
+  private constructor() {
+    // Private constructor for singleton
+  }
+
+  static getInstance(): FileServiceClass {
+    if (!FileServiceClass.instance) {
+      FileServiceClass.instance = new FileServiceClass();
+    }
+    return FileServiceClass.instance;
   }
 
   /**
@@ -102,12 +110,11 @@ class FileServiceClass {
    * Get all documents
    */
   static async getDocuments(): Promise<Document[]> {
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockDocuments);
-      }, 500);
-    });
+    const instance = FileServiceClass.getInstance();
+    if (!instance.initialized) {
+      await instance.init();
+    }
+    return instance.documents;
   }
 
   /**
@@ -126,7 +133,7 @@ class FileServiceClass {
   /**
    * Add a new document
    */
-  static async addDocument(document: Omit<Document, 'id' | 'date'>): Promise<Document> {
+  async addDocument(document: Omit<Document, 'id' | 'date'>): Promise<Document> {
     // Create a new document with generated ID and current date
     const newDocument: Document = {
       ...document,
@@ -134,13 +141,13 @@ class FileServiceClass {
       date: new Date(),
     };
 
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        mockDocuments.push(newDocument);
-        resolve(newDocument);
-      }, 500);
-    });
+    // Add to documents array
+    this.documents.push(newDocument);
+    
+    // Save to persistent storage
+    await this.saveDocumentsToStorage();
+    
+    return newDocument;
   }
 
   /**
@@ -164,7 +171,7 @@ class FileServiceClass {
   /**
    * Process a content:// URI into a data URI for viewing
    */
-  static async createDataUri(uri: string, mimeType: string): Promise<string> {
+  async createDataUri(uri: string, mimeType: string): Promise<string> {
     try {
       console.log(`Converting ${uri} to data URI`);
       
@@ -371,7 +378,8 @@ class FileServiceClass {
             uri: `mock-captured-${Date.now()}`
           };
           
-          FileServiceClass.addDocument(newDoc)
+          const instance = FileServiceClass.getInstance();
+          instance.addDocument(newDoc)
             .then(document => resolve(document))
             .catch(() => resolve(null));
         } catch (error) {
@@ -415,8 +423,7 @@ class FileServiceClass {
   }
 }
 
-// Export the class and create a singleton instance
-export const FileService = FileServiceClass;
-export const documentService = new FileServiceClass();
+// Export a singleton instance
+export const documentService = FileServiceClass.getInstance();
 // Export Document type (without redeclaring it)
 // export type { Document }; 
