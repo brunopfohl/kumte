@@ -170,7 +170,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
                 const success = await documentService.deleteDocument(selectedDocument.id);
                 if (success) {
                   setDocuments(prevDocs => prevDocs.filter(d => d.id !== selectedDocument.id));
-                  Alert.alert('Success', 'Document has been deleted');
                 } else {
                   Alert.alert('Error', 'Failed to delete document');
                 }
