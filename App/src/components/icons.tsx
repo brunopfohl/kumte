@@ -18,7 +18,8 @@ export type IconType =
   | 'search'
   | 'clock'
   | 'quiz'
-  | 'question';
+  | 'question'
+  | 'more';
 
 interface IconProps extends SvgProps {
   size?: number;
@@ -184,6 +185,14 @@ export const Icon: React.FC<IconProps & { name: IconType }> = ({
         <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
         <Path d="M8 8a3.5 3 0 0 1 3.5 -3h1a3.5 3 0 0 1 0 7h-.5h-1a3.5 3 0 0 0 -3 3v1" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
         <Path d="M12 19v.01" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    more: (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M12 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M12 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
       </Svg>
     ),
   };

@@ -215,8 +215,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         uri: doc.uri,
         type: doc.type
       })}
-      onLongPress={() => handleDocumentAction(doc)}
-      delayLongPress={500}
     >
       <View style={styles.documentPreviewContainer}>
         {doc.type === 'pdf' ? (
@@ -234,6 +232,12 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
             />
           </View>
         )}
+        <TouchableOpacity 
+          style={styles.optionsButton}
+          onPress={() => handleDocumentAction(doc)}
+        >
+          <Icon name="more" size={20} color="#94a3b8" />
+        </TouchableOpacity>
       </View>
       
       <View style={styles.documentInfo}>
@@ -561,6 +565,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    position: 'relative',
   },
   documentIcon: {
     width: '100%',
@@ -668,5 +673,21 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingTop: 8,
     paddingBottom: 20,
+  },
+  optionsButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
 }); 
