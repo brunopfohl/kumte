@@ -421,6 +421,33 @@ class FileServiceClass {
     
     return false;
   }
+
+  /**
+   * Rename a document
+   */
+  async renameDocument(id: string, newName: string): Promise<boolean> {
+    try {
+      const docIndex = this.documents.findIndex(doc => doc.id === id);
+      
+      if (docIndex === -1) {
+        console.error('Document not found:', id);
+        return false;
+      }
+
+      // Update the document title
+      this.documents[docIndex] = {
+        ...this.documents[docIndex],
+        title: newName
+      };
+
+      // Save the updated documents array
+      await this.saveDocumentsToStorage();
+      return true;
+    } catch (error) {
+      console.error('Error renaming document:', error);
+      return false;
+    }
+  }
 }
 
 // Export a singleton instance

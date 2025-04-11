@@ -33,6 +33,9 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [importing, setImporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [newDocumentName, setNewDocumentName] = useState('');
 
   // Create a memoized loadDocuments function that we can use in useEffect
   const loadDocuments = useCallback(async () => {
@@ -169,6 +172,14 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           })
         },
         {
+          text: 'Rename Document',
+          onPress: () => {
+            setSelectedDocument(doc);
+            setNewDocumentName(doc.title);
+            setRenameModalVisible(true);
+          }
+        },
+        {
           text: 'Delete Document',
           style: 'destructive',
           onPress: () => {
@@ -187,7 +198,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
                     try {
                       const success = await documentService.deleteDocument(doc.id);
                       if (success) {
-                        // Update state to remove the document
                         setDocuments(prevDocs => prevDocs.filter(d => d.id !== doc.id));
                         Alert.alert('Success', 'Document has been deleted');
                       } else {
@@ -209,6 +219,31 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         }
       ]
     );
+  };
+
+  const handleRename = async () => {
+    if (!selectedDocument || !newDocumentName.trim()) {
+      Alert.alert('Error', 'Please enter a valid document name');
+      return;
+    }
+
+    try {
+      const success = await documentService.renameDocument(selectedDocument.id, newDocumentName.trim());
+      if (success) {
+        setDocuments(prevDocs => 
+          prevDocs.map(d => 
+            d.id === selectedDocument.id ? { ...d, title: newDocumentName.trim() } : d
+          )
+        );
+        setRenameModalVisible(false);
+        Alert.alert('Success', 'Document renamed successfully');
+      } else {
+        Alert.alert('Error', 'Failed to rename document');
+      }
+    } catch (error) {
+      console.error('Error renaming document:', error);
+      Alert.alert('Error', 'An error occurred while renaming the document');
+    }
   };
 
   const renderDocumentItem = ({ item: doc }: { item: Document }) => (
@@ -384,6 +419,41 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           />
         )}
       </View>
+
+      {/* Rename Modal */}
+      <Modal
+        visible={renameModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Rename Document</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newDocumentName}
+              onChangeText={setNewDocumentName}
+              placeholder="Enter new document name"
+              autoFocus={true}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setRenameModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleRename}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>Rename</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -664,5 +734,55 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    color: '#334155',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  modalButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f1f5f9',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#3498db',
+  },
+  modalButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalButtonTextConfirm: {
+    color: 'white',
   },
 }); 
