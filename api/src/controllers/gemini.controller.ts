@@ -219,7 +219,6 @@ export class GeminiController {
         }
       });
 
-      console.log('Analysis:', analysis);
     } catch (error) {
       console.error('Error in analyzeText controller:', error);
       res.status(500).json({
@@ -247,22 +246,12 @@ export class GeminiController {
         return;
       }
       
-      if (!instructions) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'Instructions for PDF analysis are required' 
-        });
-        return;
-      }
-      
       // Analyze PDF using the service
       const analysis = await geminiService.analyzePDF(
         pdfBase64,
         instructions,
         language
       );
-
-      console.log('Analysis:', analysis);
       
       // Send response
       res.status(200).json({
@@ -276,6 +265,96 @@ export class GeminiController {
       res.status(500).json({
         success: false,
         error: (error as Error).message || 'Failed to analyze PDF'
+      });
+    }
+  }
+
+  /**
+   * Generate quiz questions from text using Google Gemini API
+   * @param req Express request object
+   * @param res Express response object
+   */
+  public async generateQuiz(req: Request, res: Response): Promise<void> {
+    try {
+      const { text, language, pdfBase64 } = req.body;
+      
+      // Validate input
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Valid text to analyze is required' 
+        });
+        return;
+      }
+      
+      // Generate quiz questions
+      const quizJson = await geminiService.generateQuizQuestions(
+        text.trim(), 
+        language,
+        pdfBase64
+      );
+      
+      // Parse the quiz JSON to validate it
+      const quiz = JSON.parse(quizJson);
+      
+      // Validate quiz structure
+      if (!Array.isArray(quiz) || quiz.length === 0) {
+        throw new Error('Invalid quiz format: expected a non-empty array of questions');
+      }
+      
+      // Validate each question
+      quiz.forEach((question, index) => {
+        if (!question.question || !Array.isArray(question.options) || 
+            question.options.length !== 4 || typeof question.correctAnswer !== 'number' ||
+            !question.explanation) {
+          throw new Error(`Invalid question format at index ${index}`);
+        }
+      });
+      
+      // Send response
+      res.status(200).json({
+        success: true,
+        data: {
+          quiz
+        }
+      });
+    } catch (error) {
+      console.error('Error in generateQuiz controller:', error);
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message || 'Failed to generate quiz questions'
+      });
+    }
+  }
+
+  /**
+   * Extract keywords from text using Google Gemini API
+   * @param req Express request object
+   * @param res Express response object
+   */
+  public async extractKeywords(req: Request, res: Response): Promise<void> {
+    try {
+      const { text, language, pdfBase64 } = req.body;
+      
+      // Extract keywords
+      const keywords = await geminiService.extractKeywords(
+        text?.trim(), 
+        language,
+        pdfBase64
+      );
+      
+      // Send response
+      res.status(200).json({
+        success: true,
+        data: {
+          keywords
+        }
+      });
+    } catch (error) {
+      console.error('Error in extractKeywords controller:', error);
+      res.status(500).json({
+        success: false,
+        error: (error as Error).message || 'Failed to extract keywords'
       });
     }
   }
