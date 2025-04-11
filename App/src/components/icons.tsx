@@ -19,7 +19,11 @@ export type IconType =
   | 'clock'
   | 'quiz'
   | 'question'
-  | 'more';
+  | 'more'
+  | 'close'
+  | 'eye'
+  | 'pencil'
+  | 'trash';
 
 interface IconProps extends SvgProps {
   size?: number;
@@ -193,6 +197,37 @@ export const Icon: React.FC<IconProps & { name: IconType }> = ({
         <Path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
         <Path d="M12 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
         <Path d="M12 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    close: (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M18 6L6 18" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M6 6l12 12" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    eye: (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    pencil: (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M13.5 6.5l4 4" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    trash: (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M4 7l16 0" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M10 11l0 6" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M14 11l0 6" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+        <Path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
       </Svg>
     ),
   };

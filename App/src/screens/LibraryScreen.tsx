@@ -21,6 +21,7 @@ import { DocumentService } from '../services/DocumentService';
 import Icon from '../components/icons';
 import PdfThumbnail from '../components/PdfThumbnail';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DocumentOptionsModal } from '../components/DocumentOptionsModal';
 
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 48) / 2; // 2 columns with padding
@@ -34,6 +35,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [newDocumentName, setNewDocumentName] = useState('');
 
@@ -127,65 +129,61 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   });
 
   const handleDocumentAction = (doc: Document) => {
-    Alert.alert(
-      'Document Actions',
-      `What would you like to do with "${doc.title}"?`,
-      [
-        { 
-          text: 'View Document', 
-          onPress: () => navigation.navigate('Viewer', {
-            uri: doc.uri,
-            type: doc.type
-          })
-        },
-        {
-          text: 'Rename Document',
-          onPress: () => {
-            setSelectedDocument(doc);
-            setNewDocumentName(doc.title);
-            setRenameModalVisible(true);
-          }
-        },
-        {
-          text: 'Delete Document',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Confirm Delete',
-              `Are you sure you want to delete "${doc.title}"?`,
-              [
-                {
-                  text: 'Cancel',
-                  style: 'cancel'
-                },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      const success = await documentService.deleteDocument(doc.id);
-                      if (success) {
-                        setDocuments(prevDocs => prevDocs.filter(d => d.id !== doc.id));
-                        Alert.alert('Success', 'Document has been deleted');
-                      } else {
-                        Alert.alert('Error', 'Failed to delete document');
-                      }
-                    } catch (error) {
-                      console.error('Error deleting document:', error);
-                      Alert.alert('Error', 'An error occurred while deleting the document');
-                    }
-                  }
+    setSelectedDocument(doc);
+    setOptionsModalVisible(true);
+  };
+
+  const handleViewDocument = () => {
+    if (selectedDocument) {
+      navigation.navigate('Viewer', {
+        uri: selectedDocument.uri,
+        type: selectedDocument.type
+      });
+      setOptionsModalVisible(false);
+    }
+  };
+
+  const handleRenameDocument = () => {
+    if (selectedDocument) {
+      setSelectedDocument(selectedDocument);
+      setNewDocumentName(selectedDocument.title);
+      setRenameModalVisible(true);
+      setOptionsModalVisible(false);
+    }
+  };
+
+  const handleDeleteDocument = () => {
+    if (selectedDocument) {
+      Alert.alert(
+        'Confirm Delete',
+        `Are you sure you want to delete "${selectedDocument.title}"?`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const success = await documentService.deleteDocument(selectedDocument.id);
+                if (success) {
+                  setDocuments(prevDocs => prevDocs.filter(d => d.id !== selectedDocument.id));
+                  Alert.alert('Success', 'Document has been deleted');
+                } else {
+                  Alert.alert('Error', 'Failed to delete document');
                 }
-              ]
-            );
+              } catch (error) {
+                console.error('Error deleting document:', error);
+                Alert.alert('Error', 'An error occurred while deleting the document');
+              }
+            }
           }
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        }
-      ]
-    );
+        ]
+      );
+      setOptionsModalVisible(false);
+    }
   };
 
   const handleRename = async () => {
@@ -421,6 +419,15 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      <DocumentOptionsModal
+        visible={optionsModalVisible}
+        document={selectedDocument!}
+        onClose={() => setOptionsModalVisible(false)}
+        onView={handleViewDocument}
+        onRename={handleRenameDocument}
+        onDelete={handleDeleteDocument}
+      />
     </SafeAreaView>
   );
 };
