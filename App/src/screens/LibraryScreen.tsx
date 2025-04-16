@@ -5,7 +5,6 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   SafeAreaView, 
-  ScrollView, 
   ActivityIndicator, 
   Alert, 
   StatusBar,
@@ -17,10 +16,8 @@ import {
 } from 'react-native';
 import { LibraryScreenProps } from '../types';
 import { Document, documentService } from '../services/FileService';
-import { DocumentService } from '../services/DocumentService';
 import Icon from '../components/icons';
 import PdfThumbnail from '../components/PdfThumbnail';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DocumentOptionsModal } from '../components/DocumentOptionsModal';
 
 const { width } = Dimensions.get('window');
@@ -39,28 +36,22 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [newDocumentName, setNewDocumentName] = useState('');
 
-  // Create a memoized loadDocuments function that we can use in useEffect
   const loadDocuments = useCallback(async () => {
     setLoading(true);
     try {
       const docs = await documentService.getDocuments();
       setDocuments(docs);
     } catch (error) {
-      console.error('Error loading documents:', error);
       Alert.alert('Error', 'Failed to load documents');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Load documents on mount and when screen is focused
   useEffect(() => {
-    // Initial load
     loadDocuments();
 
-    // Add listener for screen focus
     const unsubscribeFocus = navigation.addListener('focus', () => {
-      console.log('Library screen focused, refreshing documents');
       loadDocuments();
     });
 
@@ -78,7 +69,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         Alert.alert('Success', 'Document imported successfully');
       }
     } catch (error) {
-      // Silently handle any error (including cancellation)
       console.log('Import cancelled or failed:', error);
     } finally {
       setImporting(false);
@@ -89,43 +79,18 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
     navigation.navigate('Camera');
   };
 
-  const getIconForDocument = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'pdf':
-        return 'file-pdf';
-      case 'doc':
-        return 'file-doc';
-      case 'docx':
-        return 'file-docx';
-      case 'txt':
-        return 'file-txt';
-      case 'jpg':
-      case 'jpeg':
-        return 'jpg';
-      case 'png':
-        return 'png';
-      case 'svg':
-        return 'svg';
-      default:
-        return 'file';
-    }
-  };
-
   const filteredDocuments = documents.filter(doc => {
-    // Apply search filter
     if (searchQuery) {
       return doc.title.toLowerCase().includes(searchQuery.toLowerCase());
     }
     
-    // Apply tab filter
     if (activeFilter === 'recent') {
-      // Consider documents from the last 7 days as recent
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       return doc.date > sevenDaysAgo;
     }
     
-    return true; // 'all' filter
+    return true;
   });
 
   const handleDocumentAction = (doc: Document) => {
@@ -222,7 +187,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         {doc.type === 'pdf' ? (
           <PdfThumbnail 
             document={doc} 
-            width={ITEM_WIDTH}  // Use full width since card has no padding now
+            width={ITEM_WIDTH}
             height={180} 
           />
         ) : (
@@ -275,18 +240,12 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#3498db" />
       
-      {/* Header with gradient-like effect */}
       <View style={styles.headerContainer}>
-        {/* Base gradient layer */}
         <View style={styles.headerGradient} />
-        {/* Diagonal gradient overlay */}
         <View style={styles.diagonalGradient} />
-        {/* Bottom accent */}
         <View style={styles.bottomAccent} />
-        {/* Top highlight */}
         <View style={styles.topHighlight} />
         
-        {/* Content layer */}
         <View style={styles.headerContent}>
           <Text style={styles.title}>IntelliRead</Text>
           <View style={styles.searchContainer}>
@@ -302,7 +261,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         </View>
       </View>
       
-      {/* Action Buttons */}
       <View style={styles.actionContainer}>
         <TouchableOpacity 
           style={styles.actionButton}
@@ -326,7 +284,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
       
-      {/* Filter Tabs */}
       <View style={styles.filterContainer}>
         <TouchableOpacity 
           style={[
@@ -384,7 +341,6 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
         )}
       </View>
 
-      {/* Rename Modal */}
       <Modal
         visible={renameModalVisible}
         transparent={true}
@@ -434,7 +390,7 @@ export const LibraryScreen: React.FC<LibraryScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa', // Light gray background
+    backgroundColor: '#f5f7fa',
   },
   headerContainer: {
     paddingTop: 30,
@@ -455,7 +411,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#3498db', // Primary blue color
+    backgroundColor: '#3498db',
   },
   topHighlight: {
     position: 'absolute',
@@ -474,7 +430,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: '#2ecc71', // Secondary color
+    backgroundColor: '#2ecc71',
     opacity: 0.6,
     transform: [{ skewY: '-20deg' }, { translateY: -120 }],
   },
@@ -484,7 +440,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 40,
-    backgroundColor: '#2980b9', // Darker blue
+    backgroundColor: '#2980b9',
     opacity: 0.3,
   },
   headerContent: {
@@ -513,7 +469,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: 'white',
-    padding: 0, // Remove default padding
+    padding: 0,
     height: 40,
   },
   actionContainer: {
@@ -530,7 +486,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0', // Light gray border
+    borderColor: '#e2e8f0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -540,7 +496,7 @@ const styles = StyleSheet.create({
   actionIconContainer: {
     width: 48,
     height: 48,
-    backgroundColor: '#ebf5ff', // Light blue background
+    backgroundColor: '#ebf5ff',
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
@@ -549,7 +505,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155', // Dark gray text
+    color: '#334155',
   },
   filterContainer: {
     flexDirection: 'row',
@@ -561,18 +517,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 30,
-    backgroundColor: '#f1f5f9', // Light gray background
+    backgroundColor: '#f1f5f9',
   },
   filterTabActive: {
-    backgroundColor: '#3498db', // Primary blue color
+    backgroundColor: '#3498db',
   },
   filterTabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#64748b', // Medium gray text
+    color: '#64748b',
   },
   filterTabTextActive: {
-    color: 'white', // White text for active tab
+    color: 'white',
   },
   documentListContainer: {
     flex: 1,
@@ -593,7 +549,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 0,
     borderWidth: 1,
-    borderColor: '#e2e8f0', // Light gray border
+    borderColor: '#e2e8f0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -624,7 +580,7 @@ const styles = StyleSheet.create({
   documentTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155', // Dark gray text
+    color: '#334155',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -638,16 +594,16 @@ const styles = StyleSheet.create({
   },
   documentDate: {
     fontSize: 12,
-    color: '#94a3b8', // Medium gray text
+    color: '#94a3b8',
   },
   metaSeparator: {
     fontSize: 12,
-    color: '#cbd5e1', // Light gray text
+    color: '#cbd5e1',
     marginHorizontal: 4,
   },
   documentType: {
     fontSize: 12,
-    color: '#94a3b8', // Medium gray text
+    color: '#94a3b8',
   },
   loadingContainer: {
     flex: 1,
@@ -669,7 +625,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#f1f5f9', // Light blue background
+    backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -680,12 +636,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#334155', // Dark gray text
+    color: '#334155',
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 15,
-    color: '#94a3b8', // Medium gray text
+    color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 22,
   },

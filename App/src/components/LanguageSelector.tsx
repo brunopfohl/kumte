@@ -57,7 +57,6 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(LANGUAGES[0]);
 
-  // Load the selected language from AsyncStorage when component mounts
   React.useEffect(() => {
     const loadLanguage = async () => {
       try {
@@ -80,14 +79,12 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
     setSelectedLanguage(language);
     setModalVisible(false);
     
-    // Save selection to AsyncStorage
     try {
       await AsyncStorage.setItem(STORAGE_KEY, language.code);
     } catch (error) {
       console.error('Error saving language preference:', error);
     }
     
-    // Notify parent component if callback provided
     if (onLanguageChange) {
       onLanguageChange(language);
     }

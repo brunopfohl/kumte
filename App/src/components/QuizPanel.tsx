@@ -7,7 +7,6 @@ import {
   Platform,
   Animated,
   TextInput,
-  Keyboard,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
@@ -23,7 +22,6 @@ import Svg, { Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LANGUAGES, STORAGE_KEY, Language } from './LanguageSelector';
 
-// Generate Icon component
 const GenerateIcon = ({ color = "currentColor" }: { color?: string }) => (
   <Svg
     width={20}
@@ -94,7 +92,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
   const [score, setScore] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(LANGUAGES[0]);
 
-  // Load the selected language from AsyncStorage
   useEffect(() => {
     const loadLanguage = async () => {
       try {
@@ -111,7 +108,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     };
 
     loadLanguage();
-  }, [visible]); // Reload whenever panel becomes visible
+  }, [visible]);
 
   const translateY = animValue.interpolate({
     inputRange: [0, 1],
@@ -132,7 +129,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     setScore(0);
   };
 
-  // Simplify dismissQuiz function - just reset the quiz
   const dismissQuiz = () => {
     resetQuiz();
   };
@@ -164,7 +160,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
       setSelectedAnswer(null);
       setAnswerSubmitted(false);
     } else {
-      // Quiz completed, just show alert
       Alert.alert(
         'Quiz Completed!',
         `Your score: ${score}/${currentQuiz.questions.length}`,
@@ -216,17 +211,14 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
       );
 
       try {
-        // Clean up the response to ensure it's valid JSON
         const cleanResponse = cleanJsonResponse(response);
 
         let parsedQuestions: Question[] = [];
         try {
-          // First attempt: try parsing the full response
           parsedQuestions = JSON.parse(cleanResponse) as Question[];
         } catch (parseError) {
           console.log('First parsing attempt failed, trying to extract JSON array:', parseError);
 
-          // Second attempt: try to extract the JSON array using regex
           const jsonStart = cleanResponse.indexOf('[');
           const jsonEnd = cleanResponse.lastIndexOf(']') + 1;
 
@@ -239,7 +231,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
         }
 
         if (parsedQuestions && parsedQuestions.length > 0) {
-          // Create a new quiz
           const quizId = `quiz-${Date.now()}`;
           const quizTitle = selectedText ? 'Quiz on Selected Text' : 'Quiz on Document';
           const quiz: Quiz = {
@@ -250,7 +241,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
             documentUri
           };
 
-          // Set current quiz and show it immediately
           setCurrentQuiz(quiz);
           setQuizGenerated(true);
           setCurrentQuestionIndex(0);
@@ -269,12 +259,10 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     }
   };
 
-  // Helper function to clean up the response for better JSON parsing
   const cleanJsonResponse = (text: string): string => {
     // Remove any text before the first [
     let cleaned = text;
 
-    // Remove any markdown code block indicators
     cleaned = cleaned.replace(/```json/g, '').replace(/```/g, '');
 
     // Remove any non-JSON text before the array
@@ -298,14 +286,8 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     return cleaned;
   };
 
-  // Calculate container position based on keyboard
-  const chatContainerStyle = {
-    bottom: keyboardVisible ? keyboardHeight - 50 : 30,
-  };
-
   if (!visible) return null;
 
-  // Render quiz question view if a quiz has been generated
   if (quizGenerated && currentQuiz) {
     const currentQuestion = currentQuiz.questions[currentQuestionIndex];
     const isLastQuestion = currentQuestionIndex === currentQuiz.questions.length - 1;
@@ -423,7 +405,6 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
     );
   }
 
-  // Render quiz generator view (original view)
   return (
     <Animated.View
       style={[

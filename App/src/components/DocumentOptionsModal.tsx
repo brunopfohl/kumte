@@ -16,7 +16,6 @@ type DocumentOptionsModalProps = {
 
 export const DocumentOptionsModal: React.FC<DocumentOptionsModalProps> = ({
   visible,
-  document,
   onClose,
   onView,
   onRename,

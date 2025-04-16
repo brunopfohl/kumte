@@ -5,7 +5,6 @@ import RNFS from 'react-native-fs';
 import PdfNavigationBar from './PdfNavigationBar';
 import { apiClient } from '../services/apiClient';
 
-// Asset paths
 const HTML_PATH = Platform.OS === 'android'
   ? 'file:///android_asset/pdfViewer.html'
   : `file://${RNFS.MainBundlePath}/pdfViewer.html`;
@@ -20,7 +19,7 @@ interface PdfViewerProps {
   onLoaded?: (pageCount: number, currentPage: number) => void;
   onPageChanged?: (pageNumber: number, totalPages: number) => void;
   onError?: (error: string) => void;
-  hideControls?: boolean; // Option to hide built-in controls
+  hideControls?: boolean;
 }
 
 export interface PdfViewerMethods {
@@ -42,11 +41,6 @@ interface WebViewMessage {
   pageNumber?: number;
 }
 
-/**
- * PDF Viewer component based on PDF.js
- * Supports file:// URIs, content:// URIs, http:// URLs, and data:application/pdf URIs
- * Can be controlled externally via ref methods
- */
 const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
   uri,
   onTextSelected,
@@ -57,15 +51,12 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
 }, ref) => {
   const webViewRef = useRef<WebView>(null);
   const viewerRef = useRef<PdfViewerMethods | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  // State for text selection and Gemini API
   const [selectedText, setSelectedText] = useState<string>('');
 
-  // Set up the ref methods that will be exposed to parent
   const methods: PdfViewerMethods = {
     goToPage: (pageNumber: number) => {
       if (!isReady) return;
@@ -138,22 +129,18 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
     getTotalPages: () => totalPages
   };
 
-  // Store the methods in a ref
   useEffect(() => {
     viewerRef.current = methods;
   }, [isReady, currentPage, totalPages]);
 
-  // Expose methods to parent components via ref
   useImperativeHandle(ref, () => methods);
 
-  // Handle messages from WebView
   const handleWebViewMessage = (event: any) => {
     try {
       const data: WebViewMessage = JSON.parse(event.nativeEvent.data);
       console.log('Message from WebView:', data);
 
       if (data.type === 'loaded') {
-        setLoading(false);
         setIsReady(true);
         if (data.pageCount) {
           setTotalPages(data.pageCount);
@@ -168,20 +155,17 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
           onPageChanged(data.currentPage, totalPages);
         }
       } else if (data.type === 'error') {
-        setLoading(false);
         setError(data.message || 'Unknown error in PDF viewer');
         if (onError) {
           onError(data.message || 'Unknown error in PDF viewer');
         }
       } else if (data.type === 'console') {
-        // Handle console messages from WebView
         if (data.level === 'error') {
           console.error('WebView console error:', data.message);
         } else {
           console.log('WebView console:', data.message);
         }
       } else if (data.type === 'textSelected' && data.selectedText) {
-        // Handle text selection
         setSelectedText(data.selectedText);
         
         if (onTextSelected) {
@@ -193,10 +177,8 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
     }
   };
 
-  // Handle WebView errors
   const handleWebViewError = (err: any) => {
     console.error('WebView loading error:', err);
-    setLoading(false);
     const errorMessage = err?.nativeEvent?.description || 'Unknown error occurred while loading';
     setError(errorMessage);
     if (onError) {
@@ -204,18 +186,14 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
     }
   };
 
-  // Build the source for the WebView based on PDF URI type
   const getWebViewSource = () => {
-    // For data URIs - use the dedicated inline viewer HTML file and pass data via postMessage
     if (uri.startsWith('data:application/pdf;base64,')) {
-      console.log('Using inline viewer approach for data URI');
       return { 
         uri: `${INLINE_HTML_PATH}?hideControls=${hideControls ? 'true' : 'false'}`,
         headers: { 'Cache-Control': 'no-cache' }
       };
     }
     
-    // For file:// URIs and http:// URLs - pass through query param
     if (uri.startsWith('file://') || uri.startsWith('http')) {
       return { 
         uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}&hideControls=${hideControls ? 'true' : 'false'}`,
@@ -223,7 +201,6 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
       };
     }
     
-    // For content:// URIs (we pass the URI to the html)
     if (uri.startsWith('content://')) {
       return { 
         uri: `${HTML_PATH}?file=${encodeURIComponent(uri)}&hideControls=${hideControls ? 'true' : 'false'}`,
@@ -231,17 +208,14 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
       };
     }
     
-    // Default fallback
     return { 
       uri: `${HTML_PATH}?hideControls=${hideControls ? 'true' : 'false'}`,
       headers: { 'Cache-Control': 'no-cache' }
     };
   };
 
-  // Inject PDF data for data URIs after WebView is loaded
   const handleWebViewLoad = () => {
     if (uri.startsWith('data:application/pdf;base64,')) {
-      // For data URIs, we inject the data via direct function call after load
       setTimeout(() => {
         webViewRef.current?.injectJavaScript(`
           try {
@@ -259,11 +233,10 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
           }
           true;
         `);
-      }, 300); // Longer delay for loading data
+      }, 300);
     }
   };
 
-  // Common WebView props for reuse
   const webViewProps = {
     ref: webViewRef,
     style: styles.webView,
@@ -284,11 +257,9 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
     scalesPageToFit: true,
   };
 
-  // Render WebView with appropriate settings based on URI type
   const renderWebView = () => {
     const source = getWebViewSource();
 
-    // Special handling for file:// URIs
     if (uri.startsWith('file://')) {
       return (
         <WebView
@@ -303,7 +274,6 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
       );
     }
 
-    // For data URIs
     if (uri.startsWith('data:application/pdf;base64,')) {
       return (
         <WebView
@@ -319,7 +289,6 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
       );
     }
 
-    // Default for http/https/content URIs
     return (
       <WebView
         {...webViewProps}
@@ -329,7 +298,6 @@ const PdfViewer = forwardRef<PdfViewerMethods, PdfViewerProps>(({
     );
   };
 
-  // Render component with error handling
   if (error) {
     return (
       <View style={styles.errorContainer}>

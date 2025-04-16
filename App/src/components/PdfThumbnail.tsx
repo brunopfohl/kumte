@@ -11,16 +11,11 @@ interface PdfThumbnailProps {
   height: number;
 }
 
-/**
- * A lightweight component that renders just the first page of a PDF document as a thumbnail
- * Memoized to prevent unnecessary re-renders
- */
 const PdfThumbnail: React.FC<PdfThumbnailProps> = memo(({ document, width, height }) => {
   const [loading, setLoading] = useState(true);
   const [uri, setUri] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
-  // Handle mock data URIs specially - show fallback instead of trying to load them
   useEffect(() => {
     if (document.uri.startsWith('mock-')) {
       setLoading(false);
@@ -28,9 +23,7 @@ const PdfThumbnail: React.FC<PdfThumbnailProps> = memo(({ document, width, heigh
     }
   }, [document.uri]);
 
-  // Prepare the PDF source for viewing
   useEffect(() => {
-    // Don't try to load mock URIs
     if (document.uri.startsWith('mock-')) {
       return;
     }
@@ -42,7 +35,7 @@ const PdfThumbnail: React.FC<PdfThumbnailProps> = memo(({ document, width, heigh
         if (!uri && isMounted) {
           setLoading(true);
           setError(false);
-          // Use the document service to convert the document's URI to a viewable format
+
           const preparedUri = await DocumentService.prepareDocumentForViewing(document);
           if (isMounted) {
             setUri(preparedUri);
@@ -62,13 +55,11 @@ const PdfThumbnail: React.FC<PdfThumbnailProps> = memo(({ document, width, heigh
 
     preparePdf();
     
-    // Cleanup function to prevent state updates after unmount
     return () => {
       isMounted = false;
     };
   }, [document, uri]);
 
-  // Show loading indicator while preparing
   if (loading) {
     return (
       <View style={[styles.container, { width, height }]}>
@@ -77,7 +68,6 @@ const PdfThumbnail: React.FC<PdfThumbnailProps> = memo(({ document, width, heigh
     );
   }
 
-  // Show fallback icon if there's an error or no URI
   if (error || !uri || document.uri.startsWith('mock-')) {
     return (
       <View style={[styles.container, styles.fallbackContainer, { width, height }]}>
@@ -91,8 +81,8 @@ const PdfThumbnail: React.FC<PdfThumbnailProps> = memo(({ document, width, heigh
       <Pdf
         source={{ uri }}
         style={[styles.pdf, { width, height }]}
-        page={1} // Only show the first page
-        singlePage={true} // Ensure only one page is loaded
+        page={1}
+        singlePage={true}
         enablePaging={false}
         renderActivityIndicator={() => <ActivityIndicator size="small" color="#ff7675" />}
         onLoadComplete={() => setLoading(false)}

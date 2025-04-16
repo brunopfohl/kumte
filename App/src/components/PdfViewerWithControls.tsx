@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import PdfViewer, { PdfViewerMethods } from './PdfViewer';
 import PdfNavigationBar from './PdfNavigationBar';
 
@@ -8,10 +8,6 @@ interface PdfViewerWithControlsProps {
   onError?: (error: string) => void;
 }
 
-/**
- * Enhanced PDF Viewer with external controls
- * Combines the PdfViewer with a custom navigation bar
- */
 const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
   uri,
   onError
@@ -32,7 +28,6 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
     setCurrentPage(pageNumber);
     setTotalPages(totalPageCount);
     
-    // If page changes, hide any panels that might be visible
     if (aiPanelVisible) {
       setAiPanelVisible(false);
     }
@@ -46,18 +41,14 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
   };
 
   const handleAIExplain = (text?: string) => {
-    // Toggle AI panel visibility when AI explain is requested
     setAiPanelVisible(!aiPanelVisible);
-    // Close quiz panel if open
     if (quizPanelVisible) {
       setQuizPanelVisible(false);
     }
   };
 
   const handleQuizGenerate = (text?: string) => {
-    // Toggle Quiz panel visibility when quiz generation is requested
     setQuizPanelVisible(!quizPanelVisible);
-    // Close AI panel if open
     if (aiPanelVisible) {
       setAiPanelVisible(false);
     }
@@ -72,7 +63,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
         onPageChanged={handlePageChanged}
         onTextSelected={handleTextSelected}
         onError={onError}
-        hideControls={true} // Hide built-in controls since we're using custom ones
+        hideControls={true}
       />
       
       <PdfNavigationBar
@@ -84,7 +75,7 @@ const PdfViewerWithControls: React.FC<PdfViewerWithControlsProps> = ({
         onQuizGenerate={handleQuizGenerate}
         style={styles.navigationBar}
         documentUri={uri}
-        documentType="pdf" // This component is specifically for PDFs
+        documentType="pdf"
       />
     </View>
   );

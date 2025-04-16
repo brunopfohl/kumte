@@ -46,10 +46,6 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
   };
 
   const handleCaptureDocument = async () => {
-    console.log('Starting capture...');
-    console.log('Camera ref:', cameraRef.current);
-    console.log('Device:', device);
-    
     if (!cameraRef.current || !device) {
       console.log('Camera not ready - ref:', !!cameraRef.current, 'device:', !!device);
       Alert.alert('Error', 'Camera is not ready');
@@ -58,15 +54,12 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
     
     setCapturing(true);
     try {
-      console.log('Attempting to take photo...');
       const photo = await cameraRef.current.takePhoto({
         flash: flash ? 'on' : 'off',
         enableAutoRedEyeReduction: autoMode,
       });
-      console.log('Photo captured:', photo);
 
       if (photo.path) {
-        console.log('Photo path:', photo.path);
         const fileUri = `file://${photo.path}`;
         const document = {
           title: 'Captured Document',
@@ -74,9 +67,7 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
           uri: fileUri
         };
         
-        console.log('Saving document...');
         const savedDoc = await documentService.addDocument(document);
-        console.log('Document saved:', savedDoc);
         
         if (savedDoc) {
           Alert.alert(
@@ -98,11 +89,9 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
           );
         }
       } else {
-        console.log('No photo path received');
         Alert.alert('Error', 'Failed to capture photo - no path received');
       }
     } catch (error: any) {
-      console.error('Error capturing document:', error);
       Alert.alert('Error', `Failed to capture document: ${error?.message || 'Unknown error'}`);
     } finally {
       setCapturing(false);
@@ -183,7 +172,6 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Debug Information Overlay */}
         <View style={styles.debugOverlay}>
           <Text style={styles.debugText}>Camera Status:</Text>
           <Text style={styles.debugText}>Permission: {hasPermission ? 'Granted' : 'Not Granted'}</Text>

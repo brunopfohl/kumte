@@ -26,7 +26,6 @@ import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEY, LANGUAGES } from './LanguageSelector';
 
-// Send Icon component
 const SendIcon = ({ color = "currentColor" }: { color?: string }) => (
   <Svg
     width={20}
@@ -76,14 +75,12 @@ type Language = {
   name: string;
 };
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Message content rendering with markdown support
 const MessageContent: React.FC<{ content: string }> = ({ content }) => {
   const { width } = useWindowDimensions();
   const maxWidth = Math.min(width * 0.85, 550);
 
-  // Define custom rules for better code block rendering
   const markdownRules = {
     code_block: (node: any, children: any, parent: any, styles: any) => {
       return (
@@ -235,7 +232,7 @@ const MessageContent: React.FC<{ content: string }> = ({ content }) => {
       marginVertical: 16,
     } as ViewStyle,
     image: {
-      maxWidth: maxWidth - 32, // Account for padding
+      maxWidth: maxWidth - 32,
       borderRadius: 4,
       marginVertical: 8,
     } as ImageStyle,
@@ -268,28 +265,12 @@ const MessageContent: React.FC<{ content: string }> = ({ content }) => {
   );
 };
 
-// Message item component to handle key prop correctly
-const MessageHistoryItem = React.memo(
-  ({message, index}: {message: Message; index: number}) => {
-    return (
-      <View style={styles.historyItem}>
-        <View style={styles.historyBadge}>
-          <Text style={styles.historyBadgeText}>Q</Text>
-        </View>
-        <Text style={styles.historyText} numberOfLines={2}>{message.text}</Text>
-      </View>
-    );
-  }
-);
-
 const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   visible,
   selectedText,
   documentUri,
   documentType,
   animValue,
-  keyboardHeight,
-  keyboardVisible,
   onClose
 }) => {
   const [inputText, setInputText] = useState('');
@@ -328,7 +309,6 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     }
   }, [selectedLanguage.code]);
 
-  // Load the selected language from AsyncStorage
   useEffect(() => {
     const loadLanguage = async () => {
       try {
