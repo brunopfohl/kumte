@@ -31,18 +31,4 @@ router.post('/analyze', geminiController.analyzeText);
  */
 router.post('/analyze-pdf', geminiController.analyzePDF);
 
-/**
- * @route POST /api/gemini/generate-quiz
- * @desc Generate quiz questions from text using Google Gemini API
- * @access Public
- */
-router.post('/generate-quiz', geminiController.generateQuiz);
-
-/**
- * @route POST /api/gemini/extract-keywords
- * @desc Extract keywords from text using Google Gemini API
- * @access Public
- */
-router.post('/extract-keywords', geminiController.extractKeywords);
-
 export default router; 

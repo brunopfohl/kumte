@@ -166,12 +166,19 @@ export class DocumentService {
   }
 
   /**
-   * Convert document to base64 data
-   * @param document Document to convert
-   * @returns Base64 encoded document data
+   * Analyze document using Gemini API
+   * @param document Document to analyze
+   * @param instructions Instructions for analysis
+   * @param language Optional language code for response
    */
-  static async convertDocumentToBase64(document: Document): Promise<string> {
+  static async analyzeDocumentWithGemini(
+    document: Document,
+    instructions: string = "Summarize this document",
+    language?: string
+  ): Promise<string> {
     try {
+      console.log('Analyzing document with Gemini:', document.id);
+      
       // Ensure we have a valid document
       if (!document || !document.uri) {
         throw new Error("Invalid document");
@@ -183,26 +190,36 @@ export class DocumentService {
       
       // For PDF documents
       if (document.type === 'pdf') {
+        // Get document data as base64
+        let base64Data: string;
+        
         // If we already have a data URI
         if (preparedUri.startsWith('data:application/pdf;base64,')) {
-          return preparedUri.split(',')[1];
+          base64Data = preparedUri.split(',')[1];
+          console.log('Using existing data URI for Gemini analysis');
         } else {
           // Otherwise read the file
-          console.log('Reading document for base64 conversion:', preparedUri);
+          console.log('Reading document for Gemini analysis:', preparedUri);
           const path = preparedUri.startsWith('file://') && Platform.OS === 'android' 
             ? preparedUri.replace('file://', '') 
             : preparedUri;
           
           // Read the file as base64
-          return await RNFS.readFile(path, 'base64');
+          base64Data = await RNFS.readFile(path, 'base64');
+          console.log('Document read successfully, length:', base64Data.length);
         }
-      }
+        
+        // Call the API with the PDF data
+        return await apiClient.analyzeText(instructions, undefined, base64Data, language);
+      } 
       
-      // For non-PDF documents, get the content as text
-      return await DocumentService.getDocumentContent(document);
+      // For non-PDF documents
+      console.log('Non-PDF document, using text analysis instead');
+      const content = await DocumentService.getDocumentContent(document);
+      return await apiClient.analyzeText(content, instructions);
     } catch (error) {
-      console.error('Error converting document to base64:', error);
-      throw new Error(`Failed to convert document to base64: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error analyzing document with Gemini:', error);
+      throw new Error(`Failed to analyze document: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -217,8 +234,26 @@ export class DocumentService {
     textToAnalyze: string,
     language?: string
   ): Promise<string> {
-    const base64Data = await DocumentService.convertDocumentToBase64(document);
-    return await apiClient.generateQuizQuestions(textToAnalyze, language, base64Data);
+    const instruction = `
+      Generate 5 multiple choice questions based on the following text.
+      Each question should have 4 options and one correct answer.
+      Return the questions in the following JSON format:
+      [
+        {
+          "question": "Question text",
+          "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+          "correctAnswer": 0,
+          "explanation": "Explanation of the correct answer"
+        }
+      ]
+      
+      Only return the JSON array, no other text.
+      Escape all special characters properly to ensure valid JSON.
+      
+      ${textToAnalyze}
+    `;
+
+    return await DocumentService.analyzeDocumentWithGemini(document, instruction, language);
   }
 
   /**
@@ -234,8 +269,13 @@ export class DocumentService {
     instruction: string = "Explain this text",
     language?: string
   ): Promise<string> {
-    const base64Data = await DocumentService.convertDocumentToBase64(document);
-    return await apiClient.analyzeText(text, instruction, base64Data, language);
+    const languageInstruction = language && language !== 'en' 
+      ? `Please provide your answer in ${language}.` 
+      : '';
+    
+    const fullInstruction = `${instruction}\n\n${languageInstruction}\n\nHere is the text to analyze: "${text}"`;
+    
+    return await DocumentService.analyzeDocumentWithGemini(document, fullInstruction, language);
   }
 
   /**
@@ -249,7 +289,29 @@ export class DocumentService {
     text: string,
     language?: string
   ): Promise<string> {
-    const base64Data = await DocumentService.convertDocumentToBase64(document);
-    return await apiClient.extractKeywords(text, language, base64Data);
+    const languageInstruction = language && language !== 'en' 
+      ? `Please provide your answer in ${language}.` 
+      : '';
+    
+    const instruction = `
+      Extract the 5 most important keywords from the following text.
+      For each keyword, provide a brief summary of its relevance.
+      Return the results in the following JSON format:
+      [
+        {
+          "word": "keyword",
+          "summary": "brief explanation of relevance",
+          "relevance": 0.8
+        }
+      ]
+      
+      ${languageInstruction}
+      
+      Format the output as valid JSON that can be parsed. Only return the JSON array, no other text.
+      
+      Here is the text to analyze: "${text}"
+    `;
+    
+    return await DocumentService.analyzeDocumentWithGemini(document, instruction, language);
   }
 } 
