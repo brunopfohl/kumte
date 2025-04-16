@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform, Animated, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
 import { Icon } from './icons';
-import AIAnalysisPanel from './AIAnalysisPanel';
+import AIAnalysisPanel from './AIAnalysis/AIAnalysisPanel';
 import QuizPanel from './QuizPanel';
 
 interface PdfNavigationBarProps {
