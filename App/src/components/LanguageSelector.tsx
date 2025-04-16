@@ -11,18 +11,6 @@ import {
 import { Icon } from './icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Language globe icon
-export const LanguageIcon = ({ color = "#6b7280", size = 20 }: { color?: string, size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-    <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
-    <Path d="M3.6 9h16.8" />
-    <Path d="M3.6 15h16.8" />
-    <Path d="M11.5 3a17 17 0 0 0 0 18" />
-    <Path d="M12.5 3a17 17 0 0 1 0 18" />
-  </Svg>
-);
-
 export type Language = {
   code: string;
   name: string;
