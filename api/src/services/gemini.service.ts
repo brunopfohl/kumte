@@ -32,7 +32,7 @@ export class GeminiService {
   public async generateContent(request: GenerationRequest): Promise<string> {
     try {
       // Default model if not provided
-      const model = request.modelName || 'gemini-1.5-flash';
+      const model = request.modelName || 'gemini-2.0-flash';
       
       // Create contents array with the prompt
       const contents: any[] = [{ text: request.prompt }];
@@ -98,7 +98,7 @@ export class GeminiService {
       
       // Make API request
       const response = await genAI.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         contents: prompt,
       });
       
@@ -130,11 +130,12 @@ export class GeminiService {
       
       // Add language instruction if provided
       if (language && language !== 'en') {
-        prompt = `${instructions}\n\nPlease respond in ${language} language.`;
+        prompt = `${instructions} It's absolutely crucial for you to respond in ${language} language.`;
       }
 
-      console.log(language);
       
+      console.log(prompt);
+
       // Create contents array
       const contents: any[] = [{ text: prompt }];
       
@@ -146,11 +147,9 @@ export class GeminiService {
         }
       });
 
-      console.log(contents);
-      
       // Make API request
       const response = await genAI.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         contents: contents,
       });
       

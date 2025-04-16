@@ -223,19 +223,14 @@ export class DocumentService {
     }
   }
 
-  /**
-   * Generate quiz questions from document content
-   * @param document Document to analyze
-   * @param textToAnalyze Specific text to generate questions from
-   * @param language Optional language code for response
-   */
   static async generateQuizQuestions(
     document: Document,
     textToAnalyze: string,
+    numberOfQuestions: number,
     language?: string
   ): Promise<string> {
     const instruction = `
-      Generate 5 multiple choice questions based on the following text.
+      Generate ${numberOfQuestions} single choice questions based on the following text.
       Each question should have 4 options and one correct answer.
       Return the questions in the following JSON format:
       [

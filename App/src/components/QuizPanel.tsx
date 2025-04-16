@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Platform, 
-  Animated, 
-  TextInput, 
-  Keyboard, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+  Animated,
+  TextInput,
+  Keyboard,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
@@ -145,20 +145,20 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
 
   const handleSubmitAnswer = () => {
     if (selectedAnswer === null || !currentQuiz) return;
-    
+
     const currentQuestion = currentQuiz.questions[currentQuestionIndex];
     const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
-    
+
     if (isCorrect) {
       setScore(prevScore => prevScore + 1);
     }
-    
+
     setAnswerSubmitted(true);
   };
 
   const handleNextQuestion = () => {
     if (!currentQuiz) return;
-    
+
     if (currentQuestionIndex < currentQuiz.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
@@ -175,7 +175,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
       );
     }
   };
-  
+
   const generateQuiz = async () => {
     if (!documentUri) {
       Alert.alert('Error', 'Document URI is missing');
@@ -204,37 +204,32 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
         return;
       }
 
-      const difficultyMap = {
-        1: 'easy',
-        2: 'medium',
-        3: 'hard'
-      };
-
-      const textToAnalyze = selectedText?.trim() 
-        ? `Here is the text to analyze: "${selectedText}"` 
+      const textToAnalyze = selectedText?.trim()
+        ? `Here is the text to analyze: "${selectedText}"`
         : 'No text is selected. Generate questions from the entire document instead.';
 
       const response = await DocumentService.generateQuizQuestions(
         doc,
         textToAnalyze,
-        selectedLanguage.code
+        numberOfQuestions,
+        selectedLanguage.name
       );
-      
+
       try {
         // Clean up the response to ensure it's valid JSON
         const cleanResponse = cleanJsonResponse(response);
-        
+
         let parsedQuestions: Question[] = [];
         try {
           // First attempt: try parsing the full response
           parsedQuestions = JSON.parse(cleanResponse) as Question[];
         } catch (parseError) {
           console.log('First parsing attempt failed, trying to extract JSON array:', parseError);
-          
+
           // Second attempt: try to extract the JSON array using regex
           const jsonStart = cleanResponse.indexOf('[');
           const jsonEnd = cleanResponse.lastIndexOf(']') + 1;
-          
+
           if (jsonStart >= 0 && jsonEnd > jsonStart) {
             const jsonStr = cleanResponse.substring(jsonStart, jsonEnd);
             parsedQuestions = JSON.parse(jsonStr) as Question[];
@@ -242,7 +237,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
             throw new Error('Could not find JSON array in response');
           }
         }
-        
+
         if (parsedQuestions && parsedQuestions.length > 0) {
           // Create a new quiz
           const quizId = `quiz-${Date.now()}`;
@@ -254,7 +249,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
             createdAt: new Date(),
             documentUri
           };
-          
+
           // Set current quiz and show it immediately
           setCurrentQuiz(quiz);
           setQuizGenerated(true);
@@ -273,33 +268,33 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
       setGenerating(false);
     }
   };
-  
+
   // Helper function to clean up the response for better JSON parsing
   const cleanJsonResponse = (text: string): string => {
     // Remove any text before the first [
     let cleaned = text;
-    
+
     // Remove any markdown code block indicators
     cleaned = cleaned.replace(/```json/g, '').replace(/```/g, '');
-    
+
     // Remove any non-JSON text before the array
     const firstBracket = cleaned.indexOf('[');
     if (firstBracket !== -1) {
       cleaned = cleaned.substring(firstBracket);
     }
-    
+
     // Remove any text after the last ]
     const lastBracket = cleaned.lastIndexOf(']');
     if (lastBracket !== -1) {
       cleaned = cleaned.substring(0, lastBracket + 1);
     }
-    
+
     // Fix common JSON formatting issues
     cleaned = cleaned.replace(/(\r\n|\n|\r)/gm, ' ') // Remove line breaks
-                    .replace(/\s+/g, ' ') // Normalize whitespace
-                    .replace(/,\s*]/g, ']') // Remove trailing commas
-                    .replace(/,\s*}/g, '}'); // Remove trailing commas
-    
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/,\s*]/g, ']') // Remove trailing commas
+      .replace(/,\s*}/g, '}'); // Remove trailing commas
+
     return cleaned;
   };
 
@@ -309,14 +304,14 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
   };
 
   if (!visible) return null;
-  
+
   // Render quiz question view if a quiz has been generated
   if (quizGenerated && currentQuiz) {
     const currentQuestion = currentQuiz.questions[currentQuestionIndex];
     const isLastQuestion = currentQuestionIndex === currentQuiz.questions.length - 1;
-    
+
     return (
-      <Animated.View 
+      <Animated.View
         style={[
           styles.quizWindow,
           {
@@ -330,11 +325,11 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
             <Text style={styles.title}>Quiz</Text>
             <View style={styles.quizProgress}>
               <View style={styles.progressBar}>
-                <View 
+                <View
                   style={[
-                    styles.progressFill, 
+                    styles.progressFill,
                     { width: `${((currentQuestionIndex + 1) / currentQuiz.questions.length) * 100}%` }
-                  ]} 
+                  ]}
                 />
               </View>
               <Text style={styles.progressText}>
@@ -345,8 +340,8 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
               <Text style={styles.closeButton}>×</Text>
             </TouchableOpacity>
           </View>
-          
-          <ScrollView 
+
+          <ScrollView
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={true}
@@ -354,16 +349,16 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
             <View style={styles.questionContainer}>
               <Text style={styles.questionText}>{currentQuestion.question}</Text>
             </View>
-            
+
             <View style={styles.optionsContainer}>
               {currentQuestion.options.map((option, index) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={`option-${index}`}
                   style={[
                     styles.optionButton,
                     selectedAnswer === index && styles.optionSelected,
                     answerSubmitted && index === currentQuestion.correctAnswer && styles.optionCorrect,
-                    answerSubmitted && selectedAnswer === index && 
+                    answerSubmitted && selectedAnswer === index &&
                     selectedAnswer !== currentQuestion.correctAnswer && styles.optionIncorrect
                   ]}
                   onPress={() => handleAnswerSelect(index)}
@@ -378,25 +373,25 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 </TouchableOpacity>
               ))}
             </View>
-            
+
             {answerSubmitted && (
               <View style={styles.explanationContainer}>
                 <Text style={styles.explanationTitle}>Explanation:</Text>
                 <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
               </View>
             )}
-            
+
             <View style={styles.actionButtonsContainer}>
               {!answerSubmitted ? (
                 <>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.submitButton, selectedAnswer === null && styles.submitButtonDisabled]}
                     onPress={handleSubmitAnswer}
                     disabled={selectedAnswer === null}
                   >
                     <Text style={styles.submitButtonText}>Submit Answer</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.dismissButton}
                     onPress={dismissQuiz}
                   >
@@ -405,7 +400,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 </>
               ) : (
                 <>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.nextButton, isLastQuestion && styles.finishButton]}
                     onPress={handleNextQuestion}
                   >
@@ -413,7 +408,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                       {isLastQuestion ? 'Finish Quiz' : 'Next Question'}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.dismissButton}
                     onPress={dismissQuiz}
                   >
@@ -430,7 +425,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
 
   // Render quiz generator view (original view)
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.quizWindow,
         {
@@ -446,13 +441,13 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
             <Text style={styles.closeButton}>×</Text>
           </TouchableOpacity>
         </View>
-        
-        <KeyboardAvoidingView 
+
+        <KeyboardAvoidingView
           style={styles.keyboardAvoidContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          <ScrollView 
+          <ScrollView
             style={styles.scrollContainer}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={true}
@@ -463,7 +458,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 {selectedText || 'No text selected. Quiz will be generated from the entire document.'}
               </Text>
             </View>
-            
+
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>NUMBER OF QUESTIONS</Text>
               <View style={styles.sliderContainer}>
@@ -481,7 +476,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 <Text style={styles.sliderValue}>{numberOfQuestions}</Text>
               </View>
             </View>
-            
+
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>DIFFICULTY LEVEL</Text>
               <View style={styles.sliderContainer}>
@@ -503,7 +498,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 </View>
               </View>
             </View>
-            
+
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>QUESTION TYPES</Text>
               <View style={styles.switchRow}>
@@ -525,7 +520,7 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 />
               </View>
             </View>
-            
+
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>ADDITIONAL INSTRUCTIONS (OPTIONAL)</Text>
               <TextInput
@@ -537,8 +532,8 @@ const QuizPanel: React.FC<QuizPanelProps> = ({
                 multiline
               />
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.generateButton, generating && styles.generateButtonDisabled]}
               onPress={generateQuiz}
               disabled={generating}
