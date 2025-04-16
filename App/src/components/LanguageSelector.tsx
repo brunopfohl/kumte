@@ -8,7 +8,7 @@ import {
   FlatList,
   SafeAreaView
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Icon } from './icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Language globe icon
@@ -96,7 +96,7 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         style={[styles.languageButton, buttonStyle]} 
         onPress={() => setModalVisible(true)}
       >
-        <LanguageIcon />
+        <Icon name="language" size={20} />
         <Text style={[styles.languageButtonText, textStyle]}>
           {selectedLanguage.name}
         </Text>
@@ -140,9 +140,7 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                     {item.name}
                   </Text>
                   {selectedLanguage.code === item.code && (
-                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <Path d="M5 12l5 5l10 -10" />
-                    </Svg>
+                    <Icon name="check" size={20} color="#8B5CF6" />
                   )}
                 </TouchableOpacity>
               )}

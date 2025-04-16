@@ -23,7 +23,14 @@ export type IconType =
   | 'close'
   | 'eye'
   | 'pencil'
-  | 'trash';
+  | 'trash'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'chevron-down'
+  | 'chat'
+  | 'send'
+  | 'check'
+  | 'language';
 
 interface IconProps extends SvgProps {
   size?: number;
@@ -228,6 +235,73 @@ export const Icon: React.FC<IconProps & { name: IconType }> = ({
         <Path d="M14 11l0 6" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
         <Path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
         <Path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+      </Svg>
+    ),
+    'chevron-left': (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 20 20" fill="none" {...props}>
+        <Path
+          fillRule="evenodd"
+          d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
+          clipRule="evenodd"
+          fill={props.color}
+        />
+      </Svg>
+    ),
+    'chevron-right': (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 20 20" fill="none" {...props}>
+        <Path
+          fillRule="evenodd"
+          d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+          clipRule="evenodd"
+          fill={props.color}
+        />
+      </Svg>
+    ),
+    'chevron-down': (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <Path d="M6 9l6 6 6-6" />
+      </Svg>
+    ),
+    'chat': (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <Path d="M0 0h24v24H0z" stroke="none" fill="none" />
+        <Path d="M17.802 17.292s.077 -.055 .2 -.149c1.843 -1.425 3 -3.49 3 -5.789c0 -4.286 -4.03 -7.764 -9 -7.764c-4.97 0 -9 3.478 -9 7.764c0 4.288 4.03 7.646 9 7.646c.424 0 1.12 -.028 2.088 -.084c1.262 .82 3.104 1.493 4.716 1.493c.499 0 .734 -.41 .414 -.828c-.486 -.596 -1.156 -1.551 -1.416 -2.29z" />
+        <Path d="M7.5 13.5c2.5 2.5 6.5 2.5 9 0" />
+      </Svg>
+    ),
+    'send': (props) => (
+      <Svg
+        width={props.size}
+        height={props.size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={props.color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        {...props}
+      >
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        <Path d="M8 9h8" />
+        <Path d="M8 13h6" />
+        <Path d="M14.5 18.5l-2.5 2.5l-3 -3h-3a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v4.5" />
+        <Path d="M19 22v.01" />
+        <Path d="M19 19a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483" />
+      </Svg>
+    ),
+    'check': (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <Path d="M5 12l5 5l10 -10" />
+      </Svg>
+    ),
+    'language': (props) => (
+      <Svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke={props.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <Path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+        <Path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+        <Path d="M3.6 9h16.8" />
+        <Path d="M3.6 15h16.8" />
+        <Path d="M11.5 3a17 17 0 0 0 0 18" />
+        <Path d="M12.5 3a17 17 0 0 1 0 18" />
       </Svg>
     ),
   };

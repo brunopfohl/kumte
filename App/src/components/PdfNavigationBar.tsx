@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform, Animated, Keyboard, KeyboardEvent, LayoutAnimation, EmitterSubscription } from 'react-native';
 import { PdfViewerMethods } from './PdfViewer';
-import Svg, { Path } from 'react-native-svg';
+import { Icon } from './icons';
 import AIAnalysisPanel from './AIAnalysisPanel';
 import QuizPanel from './QuizPanel';
 
@@ -16,45 +16,6 @@ interface PdfNavigationBarProps {
   documentUri: string;
   documentType: 'pdf' | 'image';
 }
-
-const ChevronLeftIcon = ({ color }: { color: string }) => (
-  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-    <Path
-      fillRule="evenodd"
-      d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z"
-      clipRule="evenodd"
-      fill={color}
-    />
-  </Svg>
-);
-
-const ChevronRightIcon = ({ color }: { color: string }) => (
-  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-    <Path
-      fillRule="evenodd"
-      d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-      clipRule="evenodd"
-      fill={color}
-    />
-  </Svg>
-);
-
-const ChatIcon = ({ color }: { color: string }) => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M0 0h24v24H0z" stroke="none" fill="none" />
-    <Path d="M17.802 17.292s.077 -.055 .2 -.149c1.843 -1.425 3 -3.49 3 -5.789c0 -4.286 -4.03 -7.764 -9 -7.764c-4.97 0 -9 3.478 -9 7.764c0 4.288 4.03 7.646 9 7.646c.424 0 1.12 -.028 2.088 -.084c1.262 .82 3.104 1.493 4.716 1.493c.499 0 .734 -.41 .414 -.828c-.486 -.596 -1.156 -1.551 -1.416 -2.29z" />
-    <Path d="M7.5 13.5c2.5 2.5 6.5 2.5 9 0" />
-  </Svg>
-);
-
-// Quiz Icon component
-const QuizIcon = ({ color }: { color: string }) => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M8 16L10.8787 13.1213M10.8787 13.1213C11.4216 12.5784 11.7071 11.8284 11.7071 11.0503C11.7071 10.2722 11.4216 9.5222 10.8787 8.97934C10.3358 8.43645 9.58582 8.15096 8.8077 8.15096C8.02958 8.15096 7.27963 8.43645 6.73675 8.97934C6.19386 9.5222 5.90837 10.2722 5.90837 11.0503C5.90837 11.8284 6.19386 12.5784 6.73675 13.1213C7.27963 13.6642 8.02958 13.9497 8.8077 13.9497C9.58582 13.9497 10.3358 13.6642 10.8787 13.1213Z" />
-    <Path d="M18 16L14 8" />
-    <Path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22Z" />
-  </Svg>
-);
 
 const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
   viewerRef,
@@ -234,7 +195,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           onPress={handlePreviousPage}
           disabled={currentPage <= 1}
         >
-          <ChevronLeftIcon color={currentPage <= 1 ? disabledColor : iconColor} />
+          <Icon name="chevron-left" size={20} color={currentPage <= 1 ? disabledColor : iconColor} />
         </TouchableOpacity>
 
         <Text style={styles.pageNumber}>{currentPage} / {totalPages}</Text>
@@ -244,7 +205,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           onPress={handleNextPage}
           disabled={currentPage >= totalPages}
         >
-          <ChevronRightIcon color={currentPage >= totalPages ? disabledColor : iconColor} />
+          <Icon name="chevron-right" size={20} color={currentPage >= totalPages ? disabledColor : iconColor} />
         </TouchableOpacity>
 
         <View style={styles.separator} />
@@ -253,7 +214,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           style={styles.textButton}
           onPress={handleAIExplain}
         >
-          <ChatIcon color={chatVisible ? activeColor : iconColor} />
+          <Icon name="chat" size={16} color={chatVisible ? activeColor : iconColor} />
           <Text style={[
             styles.buttonText,
             {color: chatVisible ? activeColor : iconColor}
@@ -266,7 +227,7 @@ const PdfNavigationBar: React.FC<PdfNavigationBarProps> = ({
           style={styles.textButton}
           onPress={handleQuizGenerate}
         >
-          <QuizIcon color={quizVisible ? quizActiveColor : iconColor} />
+          <Icon name="quiz" size={16} color={quizVisible ? quizActiveColor : iconColor} />
           <Text style={[
             styles.buttonText,
             {color: quizVisible ? quizActiveColor : iconColor}
