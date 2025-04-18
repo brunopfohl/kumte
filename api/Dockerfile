@@ -23,7 +23,9 @@ RUN npm ci --omit=dev
 
 # Copy built app from builder stage
 COPY --from=builder /app/dist ./dist
-COPY .env ./
+
+# Environment variables with defaults
+ENV PORT=3000
 
 # Expose the port
 EXPOSE 3000
