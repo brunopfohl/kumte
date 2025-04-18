@@ -16,11 +16,11 @@ import {
   Alert
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { DocumentService } from '../services/DocumentService';
-import { Document } from '../services/FileService';
+import { DocumentService } from '../../../services/DocumentService';
+import { Document } from '../../../services/FileService';
 import Svg, { Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LANGUAGES, STORAGE_KEY, Language } from './LanguageSelector';
+import { LANGUAGES, STORAGE_KEY, Language } from '../../../components/LanguageSelector';
 
 const GenerateIcon = ({ color = "currentColor" }: { color?: string }) => (
   <Svg

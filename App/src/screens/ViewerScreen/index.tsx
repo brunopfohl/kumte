@@ -2,15 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ScrollView, ActivityIndicator, Platform, PermissionsAndroid, Alert } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types';
-import RNFS from 'react-native-fs';
 import ImageViewer from 'react-native-image-zoom-viewer';
-import { DocumentService } from '../services/DocumentService';
-import { Document, documentService } from '../services/FileService';
-import PdfViewerWithControls from '../components/PdfViewerWithControls';
-import LanguageSelector, { Language } from '../components/LanguageSelector';
-
-const { width, height } = Dimensions.get('window');
+import { RootStackParamList } from '../../types';
+import { documentService } from '../../services/FileService';
+import LanguageSelector, { Language } from '../../components/LanguageSelector';
+import PdfViewerWithControls from './components/PdfViewerWithControls';
 
 type ViewerScreenRouteProp = RouteProp<RootStackParamList, 'Viewer'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -251,38 +247,10 @@ export const ViewerScreen = () => {
     }
   };
 
-  // Handle text selection from PDF
-  const handleTextSelected = (text: string) => {
-    console.log('Selected text:', text);
-    setSelectedText(text);
-    setDebugInfo(prev => ({
-      ...prev,
-      selectedText: text,
-      lastUpdate: new Date().toISOString(),
-    }));
-  };
-
   const handleLanguageChange = (language: Language) => {
     setSelectedLanguage(language);
-    // The language selection is saved by the LanguageSelector component
   };
 
-  // Handle PDF loaded event
-  const handlePdfLoaded = (pageCount: number) => {
-    console.log('PDF loaded with', pageCount, 'pages');
-    setPdfPages(pageCount);
-    setLoading(false);
-    setDebugInfo(prev => ({
-      ...prev,
-      loading: false,
-      pdfPages: pageCount,
-      lastUpdate: new Date().toISOString(),
-      sourceStatus: 'loaded successfully',
-      loadAttempts: prev.loadAttempts + 1,
-    }));
-  };
-
-  // Handle PDF error event
   const handlePdfError = (errorMessage: string) => {
     console.error('PDF error:', errorMessage);
     setLoading(false);

@@ -1,4 +1,4 @@
-import { Alert, Platform, NativeModules } from 'react-native';
+import { Platform } from 'react-native';
 import { pick, types } from '@react-native-documents/picker';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,13 +15,6 @@ export interface Document {
 
 // Storage key for documents
 const DOCUMENTS_STORAGE_KEY = 'app_documents';
-
-// Mock document data for now - will be replaced with actual API/storage calls
-const mockDocuments: Document[] = [
-  { id: '1001', title: 'Research Paper', type: 'pdf', uri: 'mock-uri-1', date: new Date('2023-05-10') },
-  { id: '1002', title: 'Meeting Notes', type: 'image', uri: 'mock-uri-2', date: new Date('2023-06-12') },
-  { id: '1003', title: 'Project Proposal', type: 'pdf', uri: 'mock-uri-3', date: new Date('2023-07-23') },
-];
 
 /**
  * Service to handle document operations
@@ -106,96 +99,40 @@ class FileServiceClass {
     }
   }
 
-  /**
-   * Get all documents
-   */
-  static async getDocuments(): Promise<Document[]> {
-    const instance = FileServiceClass.getInstance();
-    if (!instance.initialized) {
-      await instance.init();
-    }
-    return instance.documents;
-  }
-
-  /**
-   * Get a document by ID
-   */
-  static async getDocumentById(id: string): Promise<Document | undefined> {
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const document = mockDocuments.find(doc => doc.id === id);
-        resolve(document);
-      }, 300);
-    });
-  }
-
-  /**
-   * Add a new document
-   */
   async addDocument(document: Omit<Document, 'id' | 'date'>): Promise<Document> {
-    // Create a new document with generated ID and current date
     const newDocument: Document = {
       ...document,
       id: Date.now().toString(),
       date: new Date(),
     };
 
-    // Add to documents array
     this.documents.push(newDocument);
     
-    // Save to persistent storage
     await this.saveDocumentsToStorage();
     
     return newDocument;
   }
 
-  /**
-   * Delete a document
-   */
-  static async deleteDocument(id: string): Promise<boolean> {
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const index = mockDocuments.findIndex(doc => doc.id === id);
-        if (index !== -1) {
-          mockDocuments.splice(index, 1);
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      }, 500);
-    });
-  }
-
-  /**
-   * Process a content:// URI into a data URI for viewing
-   */
   async createDataUri(uri: string, mimeType: string): Promise<string> {
     try {
       console.log(`Converting ${uri} to data URI`);
       
-      // For content:// or file:// URIs
       if (uri.startsWith('content://') || uri.startsWith('file://')) {
         try {
-          // Get file stats to check size
           const path = uri.startsWith('file://') && Platform.OS === 'android' 
             ? uri.replace('file://', '') 
             : uri;
           
           let fileSize = 0;
           try {
-            // For content URIs, this might fail but we'll still try to read the file
             const stats = await RNFS.stat(path);
             fileSize = stats.size;
             console.log(`File size: ${fileSize} bytes`);
             
-            // Check if file is too large (>50MB) for direct data URI conversion
-            const MAX_SAFE_SIZE = 50 * 1024 * 1024; // 50MB limit for data URIs
+            const MAX_SAFE_SIZE = 50 * 1024 * 1024;
             if (fileSize > MAX_SAFE_SIZE) {
               console.log('File too large for data URI, creating temp file copy instead');
               
-              // For large files, create a copy in cache instead of data URI
               const timestamp = Date.now();
               const extension = path.split('.').pop() || (mimeType.includes('pdf') ? 'pdf' : 'jpg');
               const fileName = `large_file_${timestamp}.${extension}`;
@@ -204,20 +141,17 @@ class FileServiceClass {
               console.log(`Copying large file to: ${destPath}`);
               await RNFS.copyFile(path, destPath);
               
-              // Verify the copy worked
               const fileExists = await RNFS.exists(destPath);
               if (!fileExists) {
                 throw new Error('Failed to create temp file copy');
               }
               
-              // Return file:// URI instead of data URI
               return `file://${destPath}`;
             }
           } catch (statError) {
             console.log('Could not get file stats, will attempt to read anyway:', statError);
           }
           
-          // For reasonable size files, read as base64
           console.log('Reading file to base64');
           const base64Data = await RNFS.readFile(path, 'base64');
           
@@ -313,7 +247,6 @@ class FileServiceClass {
             const fileSize = stats.size;
             console.log(`File size: ${fileSize} bytes`);
             
-            // Only create data URI for files smaller than 5MB to prevent SQLite errors
             const MAX_SIZE_FOR_DATA_URI = 5 * 1024 * 1024; // 5MB
             if (fileSize < MAX_SIZE_FOR_DATA_URI) {
               const mimeType = documentType === 'pdf' ? 'application/pdf' : `image/${fileExtension}`;
@@ -327,12 +260,10 @@ class FileServiceClass {
           }
         } catch (copyError) {
           console.warn('Failed during content URI processing:', copyError);
-          // Still use original URI as fallback
           fileUri = result.uri;
         }
       }
 
-      // Create new document
       const newDocument: Document = {
         id: Date.now().toString(),
         title: result.name || 'Untitled Document',
@@ -343,76 +274,32 @@ class FileServiceClass {
         date: new Date(),
       };
 
-      // Store document
       this.documents.push(newDocument);
       
-      // Save to persistent storage
       await this.saveDocumentsToStorage();
       
       console.log('Imported document:', newDocument);
       
       return newDocument;
     } catch (error: any) {
-      // Handle cancellation by user
       if (error.code === 'DOCUMENT_PICKER_CANCELED') {
         console.log('User cancelled document picking');
         return null;
       }
-      
-      // todo: better handling per error type
     }
   }
 
-  /**
-   * Capture a document (simulated for now)
-   */
-  static async captureDocument(): Promise<Document | null> {
-    // Simulate camera capture - in a real app this would use camera
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        try {
-          const newDoc = {
-            title: 'Captured Document',
-            type: 'image' as const,
-            uri: `mock-captured-${Date.now()}`
-          };
-          
-          const instance = FileServiceClass.getInstance();
-          instance.addDocument(newDoc)
-            .then(document => resolve(document))
-            .catch(() => resolve(null));
-        } catch (error) {
-          console.error('Error capturing document:', error);
-          resolve(null);
-        }
-      }, 1000);
-    });
-  }
-
-  /**
-   * Get all documents that have been imported
-   */
   getDocuments(): Document[] {
     return [...this.documents];
   }
 
-  /**
-   * Get a document by ID
-   */
-  getDocumentById(id: string): Document | undefined {
-    return this.documents.find(doc => doc.id === id);
-  }
 
-  /**
-   * Delete a document by ID
-   */
   async deleteDocument(id: string): Promise<boolean> {
     const index = this.documents.findIndex(doc => doc.id === id);
     
     if (index !== -1) {
       this.documents.splice(index, 1);
       
-      // Save changes to persistent storage
       await this.saveDocumentsToStorage();
       
       return true;
@@ -421,9 +308,6 @@ class FileServiceClass {
     return false;
   }
 
-  /**
-   * Rename a document
-   */
   async renameDocument(id: string, newName: string): Promise<boolean> {
     try {
       const docIndex = this.documents.findIndex(doc => doc.id === id);
@@ -433,13 +317,11 @@ class FileServiceClass {
         return false;
       }
 
-      // Update the document title
       this.documents[docIndex] = {
         ...this.documents[docIndex],
         title: newName
       };
 
-      // Save the updated documents array
       await this.saveDocumentsToStorage();
       return true;
     } catch (error) {
@@ -449,7 +331,4 @@ class FileServiceClass {
   }
 }
 
-// Export a singleton instance
 export const documentService = FileServiceClass.getInstance();
-// Export Document type (without redeclaring it)
-// export type { Document }; 

@@ -14,11 +14,11 @@ import {
   Modal,
   Image
 } from 'react-native';
-import { LibraryScreenProps } from '../types';
-import { Document, documentService } from '../services/FileService';
-import Icon from '../components/icons';
-import PdfThumbnail from '../components/PdfThumbnail';
-import { DocumentOptionsModal } from '../components/DocumentOptionsModal';
+import { LibraryScreenProps } from '../../types';
+import { Document, documentService } from '../../services/FileService';
+import Icon from '../../components/icons';
+import PdfThumbnail from './components/PdfThumbnail';
+import { DocumentOptionsModal } from './components/DocumentOptionsModal';
 
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 48) / 2; // 2 columns with padding

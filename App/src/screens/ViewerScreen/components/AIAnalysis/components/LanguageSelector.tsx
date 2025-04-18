@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { Icon } from '../../icons';
+import { Icon } from '../../../../../components/icons';
 import { Language } from '../types';
 
 interface LanguageSelectorProps {

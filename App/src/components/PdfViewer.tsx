@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, forwardRef, useImperativeHandle } f
 import { View, Text, ActivityIndicator, StyleSheet, Dimensions, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
-import PdfNavigationBar from './PdfNavigationBar';
+import PdfNavigationBar from '../screens/ViewerScreen/components/PdfNavigationBar';
 import { apiClient } from '../services/apiClient';
 
 const HTML_PATH = Platform.OS === 'android'

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import PdfViewer, { PdfViewerMethods } from './PdfViewer';
+import PdfViewer, { PdfViewerMethods } from '../../../components/PdfViewer';
 import PdfNavigationBar from './PdfNavigationBar';
 
 interface PdfViewerWithControlsProps {

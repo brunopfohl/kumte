@@ -6,12 +6,11 @@ import { MessageArea } from './components/MessageArea';
 import { ChatInput } from './components/ChatInput';
 import { SelectedText } from './components/SelectedText';
 import { KeywordDetail } from './components/KeywordDetail';
-import { DocumentService } from '../../services/DocumentService';
-import { Document } from '../../services/FileService';
-import { Icon } from '../icons';
+import { DocumentService } from '../../../../services/DocumentService';
+import { Document } from '../../../../services/FileService';
 import { sharedStyles } from './styles/sharedStyles';
 import { AIAnalysisPanelProps, Keyword, Language } from './types';
-import { LANGUAGES } from '../LanguageSelector';
+import { LANGUAGES } from '../../../../components/LanguageSelector';
 
 const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   visible,

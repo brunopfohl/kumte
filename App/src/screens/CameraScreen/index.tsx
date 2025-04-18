@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Dimensions, ActivityIndicator, Alert, Platform } from 'react-native';
-import { CameraScreenProps } from '../types';
-import { documentService } from '../services/FileService';
-import { Camera, useCameraDevice, CameraPermissionStatus } from 'react-native-vision-camera';
+import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { PermissionsAndroid } from 'react-native';
+import { CameraScreenProps } from '../../types';
+import { documentService } from '../../services/FileService';
 
 const { width } = Dimensions.get('window');
 const frameSize = width * 0.7;

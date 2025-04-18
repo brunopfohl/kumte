@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Icon } from '../../icons';
+import { Icon } from '../../../../../components/icons';
 
 interface ChatInputProps {
   value: string;

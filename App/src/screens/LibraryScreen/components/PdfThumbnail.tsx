@@ -1,9 +1,9 @@
 import React, { useState, useEffect, memo } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import Pdf from 'react-native-pdf';
-import { Document } from '../services/FileService';
-import { DocumentService } from '../services/DocumentService';
-import Icon from './icons';
+import { Document } from '../../../services/FileService';
+import { DocumentService } from '../../../services/DocumentService';
+import Icon from '../../../components/icons';
 
 interface PdfThumbnailProps {
   document: Document;

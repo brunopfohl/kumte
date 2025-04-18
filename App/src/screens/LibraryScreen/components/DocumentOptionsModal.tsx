@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions } from 'react-native';
-import { Document } from '../services/FileService';
-import Icon from './icons';
+import { Document } from '../../../services/FileService';
+import Icon from '../../../components/icons';
 
 const { width } = Dimensions.get('window');
 
