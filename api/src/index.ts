@@ -76,7 +76,7 @@ const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
   
   // Setup localtunnel to expose the API
-  setupTunnel();
+  //setupTunnel();
 });
 
 /**

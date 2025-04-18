@@ -85,4 +85,62 @@ fetch('http://your-server-address:3000/api/gemini/generate', {
 .catch(error => {
   console.error('Error:', error);
 });
-``` 
+```
+
+## Docker Deployment
+
+This API can be easily deployed using Docker. Follow these steps to deploy it on your VPS:
+
+### Option 1: Quick Build and Deploy (Windows)
+
+1. Run the deployment script in PowerShell:
+   ```powershell
+   # Execute the script
+   .\deploy.ps1
+   ```
+
+2. Transfer the generated `kumte-api-deploy.zip` file to your VPS
+
+3. On your VPS, extract the ZIP file
+
+4. Navigate to the deploy directory:
+   ```bash
+   cd deploy
+   ```
+
+5. Start the Docker container:
+   ```bash
+   docker compose up -d
+   ```
+
+### Option 2: Manual Deployment
+
+1. Build the Docker image locally:
+   ```bash
+   docker compose build
+   ```
+
+2. Create a deployment directory on your VPS with:
+   - `Dockerfile`
+   - `docker-compose.yml`
+   - `.env` file
+
+3. On your VPS, navigate to the deployment directory and run:
+   ```bash
+   docker compose up -d
+   ```
+
+### Environment Variables
+
+Make sure your `.env` file contains the necessary environment variables:
+
+```
+PORT=3000
+GEMINI_API_KEY=your_api_key
+```
+
+### Managing the Deployment
+
+- View logs: `docker compose logs -f`
+- Stop the service: `docker compose down`
+- Restart the service: `docker compose restart` 
