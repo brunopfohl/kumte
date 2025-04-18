@@ -1,9 +1,11 @@
 import { Animated } from 'react-native';
 
 export interface Keyword {
-  word: string;
-  summary: string;
-  relevance: number;
+  concept: string;
+  definition: string;
+  significance: string;
+  importanceScore: number;
+  relatedConcepts: string[];
 }
 
 export interface Message {
@@ -27,4 +29,32 @@ export interface AIAnalysisPanelProps {
   keyboardHeight: number;
   keyboardVisible: boolean;
   onClose: () => void;
+}
+
+export interface ConceptMap {
+  centralConcept: string;
+  nodes: ConceptNode[];
+  links: ConceptLink[];
+  summary: string;
+}
+
+export interface ConceptNode {
+  id: string;
+  label: string;
+  level: number;
+}
+
+export interface ConceptLink {
+  source: string;
+  target: string;
+  label: string;
+  type: 'hierarchical' | 'cross-link';
+}
+
+export interface Flashcard {
+  front: string;
+  back: string;
+  difficultyLevel: number;
+  tags: string[];
+  conceptCategory: string;
 } 

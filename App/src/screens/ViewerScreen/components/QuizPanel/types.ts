@@ -17,6 +17,8 @@ export interface Question {
   options: string[];
   correctAnswer: number;
   explanation: string;
+  difficultyLevel?: 'beginner' | 'intermediate' | 'advanced';
+  learningObjective?: string;
 }
 
 export interface Quiz {

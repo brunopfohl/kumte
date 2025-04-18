@@ -1,32 +1,56 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import Markdown from 'react-native-markdown-display';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Keyword } from '../types';
 
 interface KeywordDetailProps {
-  keyword: Keyword | null;
+  keyword: Keyword;
   onClose: () => void;
 }
 
-export const KeywordDetail: React.FC<KeywordDetailProps> = ({
-  keyword,
-  onClose,
-}) => {
-  if (!keyword) return null;
-
+export const KeywordDetail: React.FC<KeywordDetailProps> = ({ keyword, onClose }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{keyword.word}</Text>
+        <Text style={styles.title}>{keyword.concept}</Text>
         <TouchableOpacity onPress={onClose}>
           <Text style={styles.closeButton}>×</Text>
         </TouchableOpacity>
       </View>
       
-      <ScrollView style={styles.scrollView}>
-        <Markdown style={markdownStyles}>
-          {keyword.summary}
-        </Markdown>
+      <ScrollView style={styles.content}>
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Definition</Text>
+          <Text style={styles.description}>{keyword.definition}</Text>
+        </View>
+        
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Significance</Text>
+          <Text style={styles.description}>{keyword.significance}</Text>
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Importance Score</Text>
+          <View style={styles.scoreContainer}>
+            <View 
+              style={[
+                styles.scoreBar, 
+                { width: `${Math.round(keyword.importanceScore * 100)}%` }
+              ]} 
+            />
+            <Text style={styles.scoreText}>
+              {Math.round(keyword.importanceScore * 100)}%
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Related Concepts</Text>
+          {keyword.relatedConcepts.map((concept, index) => (
+            <View key={index} style={styles.relatedConcept}>
+              <Text style={styles.relatedConceptText}>• {concept}</Text>
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -36,7 +60,12 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    marginVertical: 8,
+    marginVertical: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
@@ -49,66 +78,61 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e7eb',
   },
   title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  closeButton: {
-    fontSize: 24,
-    color: '#6b7280',
-    fontWeight: '400',
-  },
-  scrollView: {
-    maxHeight: 200,
-    padding: 16,
-  },
-});
-
-const markdownStyles = {
-  body: {
-    color: '#374151',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  heading1: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    color: '#1f2937',
   },
-  heading2: {
+  closeButton: {
+    fontSize: 22,
+    color: '#6b7280',
+  },
+  content: {
+    padding: 16,
+    maxHeight: 300,
+  },
+  infoSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    color: '#4b5563',
     marginBottom: 8,
   },
-  heading3: {
+  description: {
     fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+  },
+  scoreContainer: {
+    height: 24,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  scoreBar: {
+    position: 'absolute',
+    height: '100%',
+    backgroundColor: '#3b82f6',
+    borderRadius: 12,
+  },
+  scoreText: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
+    paddingTop: 4,
   },
-  link: {
-    color: '#8b5cf6',
+  relatedConcept: {
+    marginBottom: 4,
   },
-  blockquote: {
-    backgroundColor: '#f3f4f6',
-    borderLeftColor: '#8b5cf6',
-    borderLeftWidth: 4,
-    paddingLeft: 12,
-    marginLeft: 0,
-    marginRight: 0,
+  relatedConceptText: {
+    fontSize: 14,
+    color: '#4b5563',
   },
-  code_inline: {
-    backgroundColor: '#f3f4f6',
-    color: '#374151',
-    padding: 2,
-    borderRadius: 4,
-  },
-  code_block: {
-    backgroundColor: '#f3f4f6',
-    padding: 12,
-    borderRadius: 4,
-    marginVertical: 8,
-  },
-}; 
+}); 

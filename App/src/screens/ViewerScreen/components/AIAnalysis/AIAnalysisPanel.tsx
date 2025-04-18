@@ -9,7 +9,7 @@ import { KeywordDetail } from './components/KeywordDetail';
 import { DocumentService } from '../../../../services/DocumentService';
 import { Document } from '../../../../services/FileService';
 import { sharedStyles } from './styles/sharedStyles';
-import { AIAnalysisPanelProps, Keyword, Language } from './types';
+import { AIAnalysisPanelProps, Keyword, Language, ConceptMap } from './types';
 import { LANGUAGES } from '../../../../components/LanguageSelector';
 
 const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
@@ -30,6 +30,8 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<Language>(LANGUAGES[0]);
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [conceptMap, setConceptMap] = useState<ConceptMap | null>(null);
+  const [conceptMapLoading, setConceptMapLoading] = useState(false);
 
   const translateY = animValue.interpolate({
     inputRange: [0, 1],
@@ -48,7 +50,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     }
   }, [visible, selectedText, selectedLanguage.code]);
 
-  const analyzeWithGemini = async (text: string, instruction: string = "Explain this text") => {
+  const analyzeWithGemini = async (text: string, instruction: string = "Explain this text in an educational manner") => {
     setGeminiLoading(true);
     setGeminiResponse('');
     
@@ -105,9 +107,9 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           const parsedKeywords = JSON.parse(jsonStr) as Keyword[];
           
           const validKeywords = parsedKeywords.filter(k => 
-            k && typeof k.word === 'string' && 
-            typeof k.summary === 'string' && 
-            typeof k.relevance === 'number'
+            k && typeof k.concept === 'string' && 
+            typeof k.definition === 'string' && 
+            typeof k.importanceScore === 'number'
           );
           
           setKeywords(validKeywords);
@@ -126,10 +128,132 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     }
   };
 
+  const generateConceptMap = async () => {
+    if (!selectedText) return;
+    
+    setConceptMapLoading(true);
+    
+    try {
+      const doc: Document = {
+        id: `selection-${Date.now()}`,
+        title: 'Current Document',
+        type: documentType,
+        uri: documentUri,
+        date: new Date()
+      };
+      
+      const response = await DocumentService.generateConceptMap(
+        doc,
+        selectedText,
+        undefined,
+        selectedLanguage.code
+      );
+      
+      try {
+        const jsonStart = response.indexOf('{');
+        const jsonEnd = response.lastIndexOf('}') + 1;
+        
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          const jsonStr = response.substring(jsonStart, jsonEnd);
+          const parsedConceptMap = JSON.parse(jsonStr) as ConceptMap;
+          setConceptMap(parsedConceptMap);
+          
+          // Generate and display an explanation of the concept map
+          const conceptMapExplanation = 
+            `# Concept Map: ${parsedConceptMap.centralConcept}\n\n` +
+            `${parsedConceptMap.summary}\n\n` +
+            `## Key Concepts:\n` +
+            parsedConceptMap.nodes.map(node => `- ${node.label}`).join('\n');
+          
+          setGeminiResponse(conceptMapExplanation);
+        } else {
+          console.error('Could not find JSON in concept map response:', response);
+        }
+      } catch (parseError) {
+        console.error('Error parsing concept map JSON:', parseError);
+      }
+    } catch (error) {
+      console.error('Error generating concept map:', error);
+    } finally {
+      setConceptMapLoading(false);
+    }
+  };
+
+  const explainSimply = async (level: 'child' | 'teenager' | 'non-expert' = 'non-expert') => {
+    if (!selectedText) return;
+    setGeminiLoading(true);
+    
+    try {
+      const doc: Document = {
+        id: `selection-${Date.now()}`,
+        title: 'Current Document',
+        type: documentType,
+        uri: documentUri,
+        date: new Date()
+      };
+      
+      // Use the first keyword/concept as the target concept or "this concept" if none available
+      const targetConcept = keywords.length > 0 ? keywords[0].concept : "this concept";
+      
+      const response = await DocumentService.explainSimply(
+        doc,
+        selectedText,
+        targetConcept,
+        level,
+        selectedLanguage.code
+      );
+      
+      try {
+        const jsonStart = response.indexOf('{');
+        const jsonEnd = response.lastIndexOf('}') + 1;
+        
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          const jsonStr = response.substring(jsonStart, jsonEnd);
+          const explanation = JSON.parse(jsonStr);
+          
+          const formattedExplanation = 
+            `# ${explanation.concept} Explained\n\n` +
+            `${explanation.hook}\n\n` +
+            `${explanation.coreExplanation}\n\n` +
+            `## Using Analogies\n${explanation.analogies.map((a: string) => `- ${a}`).join('\n')}\n\n` +
+            `## Common Misconceptions\n${explanation.commonMisconceptions.map((m: string) => `- ${m}`).join('\n')}\n\n` +
+            `## Summary\n${explanation.summary}`;
+          
+          setGeminiResponse(formattedExplanation);
+        } else {
+          setGeminiResponse(response);
+        }
+      } catch (parseError) {
+        console.error('Error parsing explanation JSON:', parseError);
+        setGeminiResponse(response);
+      }
+    } catch (error) {
+      console.error('Error generating explanation:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setGeminiResponse(`Error explaining: ${errorMessage}`);
+    } finally {
+      setGeminiLoading(false);
+    }
+  };
+
   const handleSendPress = () => {
     if (!inputText.trim()) return;
     
-    analyzeWithGemini(selectedText, inputText);
+    // Check for special commands
+    if (inputText.toLowerCase().includes('concept map')) {
+      generateConceptMap();
+    } else if (inputText.toLowerCase().includes('explain simply') || 
+               inputText.toLowerCase().includes('explain for kids')) {
+      explainSimply('child');
+    } else if (inputText.toLowerCase().includes('explain for teenagers')) {
+      explainSimply('teenager');
+    } else if (inputText.toLowerCase().includes('simplify')) {
+      explainSimply('non-expert');
+    } else {
+      // Default behavior - analyze with custom instruction
+      analyzeWithGemini(selectedText, inputText);
+    }
+    
     setInputText('');
   };
 
@@ -167,7 +291,7 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
     >
       <View style={sharedStyles.chatHeader}>
         <View style={sharedStyles.titleContainer}>
-          <Text style={sharedStyles.chatTitle}>AI Analysis</Text>
+          <Text style={sharedStyles.chatTitle}>AI Learning Assistant</Text>
           
           <LanguageSelector
             selectedLanguage={selectedLanguage}
@@ -206,13 +330,14 @@ const AIAnalysisPanel: React.FC<AIAnalysisPanelProps> = ({
           
           <MessageArea
             response={geminiResponse}
-            loading={geminiLoading}
+            loading={geminiLoading || conceptMapLoading}
           />
           
           <ChatInput
             value={inputText}
             onChange={setInputText}
             onSend={handleSendPress}
+            placeholder="Ask a question, create a concept map, or ask to simplify..."
           />
         </View>
       </KeyboardAvoidingView>

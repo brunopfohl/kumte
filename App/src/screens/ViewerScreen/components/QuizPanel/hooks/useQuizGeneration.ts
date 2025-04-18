@@ -79,11 +79,22 @@ export const useQuizGeneration = ({
         ? `Here is the text to analyze: "${selectedText}"`
         : 'No text is selected. Generate questions from the entire document instead.';
 
+      // Map UI difficulty level (1-3) to the appropriate difficulty string
+      const difficultyMapping: Record<number, 'beginner' | 'intermediate' | 'advanced'> = {
+        1: 'beginner',
+        2: 'intermediate',
+        3: 'advanced'
+      };
+      
+      const difficultyString: 'beginner' | 'intermediate' | 'advanced' = 
+        difficultyMapping[difficultyLevel] || 'intermediate';
+
       const response = await DocumentService.generateQuizQuestions(
         doc,
         textToAnalyze,
         numberOfQuestions,
-        selectedLanguage.name
+        difficultyString,
+        selectedLanguage.code
       );
 
       try {
@@ -108,7 +119,10 @@ export const useQuizGeneration = ({
 
         if (parsedQuestions && parsedQuestions.length > 0) {
           const quizId = `quiz-${Date.now()}`;
-          const quizTitle = selectedText ? 'Quiz on Selected Text' : 'Quiz on Document';
+          const quizTitle = selectedText 
+            ? `${difficultyString.charAt(0).toUpperCase() + difficultyString.slice(1)} Quiz on Selected Text`
+            : `${difficultyString.charAt(0).toUpperCase() + difficultyString.slice(1)} Quiz on Document`;
+          
           const quiz: Quiz = {
             id: quizId,
             title: quizTitle,

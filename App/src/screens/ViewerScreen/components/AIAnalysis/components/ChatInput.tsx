@@ -1,39 +1,43 @@
 import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Icon } from '../../../../../components/icons';
 
-interface ChatInputProps {
+export interface ChatInputProps {
   value: string;
   onChange: (text: string) => void;
   onSend: () => void;
+  loading?: boolean;
+  placeholder?: string;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   value,
   onChange,
   onSend,
+  loading = false,
+  placeholder = "Ask something about this text..."
 }) => {
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.input}
-        placeholder="Type a message..."
-        placeholderTextColor="#9ca3af"
         value={value}
         onChangeText={onChange}
-        returnKeyType="send"
-        onSubmitEditing={onSend}
+        placeholder={placeholder}
+        placeholderTextColor="#9ca3af"
         multiline
       />
+      
       <TouchableOpacity 
-        style={[
-          styles.sendButton,
-          value.trim().length === 0 && styles.sendButtonDisabled
-        ]}
-        disabled={value.trim().length === 0}
+        style={[styles.sendButton, !value.trim() ? styles.sendButtonDisabled : {}]}
         onPress={onSend}
+        disabled={!value.trim() || loading}
       >
-        <Icon name="send" size={20} color={value.trim().length === 0 ? "#9ca3af" : "#ffffff"} />
+        {loading ? (
+          <ActivityIndicator size="small" color="#ffffff" />
+        ) : (
+          <Icon name="send" size={18} color={!value.trim() ? '#9ca3af' : '#ffffff'} />
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -43,19 +47,18 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    paddingTop: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   input: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
     fontSize: 14,
-    color: '#374151',
+    paddingVertical: 10,
+    color: '#1f2937',
     maxHeight: 100,
   },
   sendButton: {
@@ -65,6 +68,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 8,
   },
   sendButtonDisabled: {
     backgroundColor: '#e5e7eb',
